@@ -83,9 +83,9 @@ python TOOLS/audit_repo.py --staged
 
 ## What belongs in the public repository
 
-`.gitignore` denies new root folders by default and allows only known code, test, HTML-template and documentation paths. SRC, EXTRACTED, LOCAL, ANALYSIS, Ghidra projects, captures, builds and downloaded dependencies are excluded. The gallery template is versioned; the rendered gallery containing game images is not.
+`.gitignore` denies new root folders by default and allows only known code, test, HTML-template and documentation paths plus the project banner. SRC, EXTRACTED, LOCAL, ANALYSIS, Ghidra projects, captures, builds and downloaded dependencies are excluded. The gallery template is versioned; the rendered gallery containing game images is not.
 
-`audit_repo.py` checks the complete Git index for allowed paths, UTF-8 text, binary files and some secret/embedded-media patterns. This complements manual inspection; it is not a universal secret detector or legal analysis. Windows dependencies are fetched from their official projects at pinned versions with SHA-256 verification. The importer does not execute the DOS binaries. Decompilation files remain private.
+`audit_repo.py` checks the complete Git index for allowed paths, UTF-8 text, binary files and some secret/embedded-media patterns. The sole binary exception is the project banner, allowed only at its exact SHA-256. This complements manual inspection; it is not a universal secret detector or legal analysis. Windows dependencies are fetched from their official projects at pinned versions with SHA-256 verification. The importer does not execute the DOS binaries. Decompilation files remain private.
 
 Our code and documentation use the [MIT license](../LICENSE), with the collective notice "Rise 2 Port contributors." The license does not cover original game data. Before GitHub publication, test a real physical CD and review the index. No remote repository has been created at this stage.
 

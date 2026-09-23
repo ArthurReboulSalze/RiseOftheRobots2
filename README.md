@@ -1,8 +1,10 @@
 # Rise 2 — Return to the arena
 
+![Rise 2: Resurrection Port banner](assets/ROTR2_Port_Banner.png)
+
 An experimental community port of **Rise 2: Resurrection**, built with C++17 and SDL2. It reconstructs images, movement, collisions and audio from **your own copy of the game**.
 
-This repository contains our code, tools and research notes. It contains no original game files, artwork, movies, music, DOS executables or decompiler output. Imported and converted data stay on your computer. This is an independent project, unaffiliated with the game's rights holders. Our code and documentation are available under the [MIT license](LICENSE); the game data retain their owners' rights.
+This repository contains our code, tools, research notes and project banner. It contains no original game files, extracted artwork, movies, music, DOS executables or decompiler output. Imported and converted data stay on your computer. This is an independent project, unaffiliated with the game's rights holders. Our code and documentation are available under the [MIT license](LICENSE); the game data retain their owners' rights.
 
 ## Import your copy
 
@@ -22,10 +24,9 @@ Add one or more sources in the import window. You can also add a separate music 
 | A ZIP archive | Select the ZIP. Nested folders are detected. |
 | An ISO file | Select the ISO9660 image. CD audio can be supplied separately. |
 | A BIN/CUE image | Select the **CUE**, keeping its BIN beside it. The data and numbered CD audio tracks are extracted. |
-| Multiple discs | Add each CUE or ISO. The disc containing the game banks supplies the main soundtrack; bonus discs remain separate. |
 | A physical Windows CD | Select the drive root. The importer copies data files and reads audio tracks from the drive. This path still needs a test with real optical hardware. |
 
-**Director's Cut needs only Disc 1.** It contains the game, 30 robots and CD audio tracks 02–10. Disc 2 contains bonus material and is optional. Disc 1 is the source chosen for future movie and game-content extraction.
+**Director's Cut needs only Disc 1.** It contains the game, 30 robots and CD audio tracks 02–10.
 
 To mount the data track with Windows' built-in ISO mounter, create a data-only ISO:
 
@@ -110,6 +111,6 @@ python TOOLS/audit_repo.py --staged
 
 After an import, `PORT/build/Release/rotr2_asset_smoke.exe LOCAL/my-game/EXTRACTED` checks menus and every robot bank without opening a window.
 
-Automated tests build small synthetic disc images and samples; they need no original game data. The Git index audit allows only known code and documentation paths. `SRC`, `LOCAL`, `EXTRACTED`, captures, Ghidra projects, builds and downloaded dependencies are excluded.
+Automated tests build small synthetic disc images and samples; they need no original game data. The Git index audit allows only known code and documentation paths plus the project banner. `SRC`, `LOCAL`, `EXTRACTED`, captures, Ghidra projects, builds and downloaded dependencies are excluded.
 
 Before release, the physical-CD path still needs real hardware validation. SDL2/SDL2_image, nlohmann/json, Pillow and pycdlib retain their own licenses; see their distributions.

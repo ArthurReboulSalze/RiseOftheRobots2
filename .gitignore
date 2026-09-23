@@ -6,6 +6,9 @@
 !/LICENSE
 !/requirements.txt
 !/IMPORTER.cmd
+!/assets/
+/assets/*
+!/assets/ROTR2_Port_Banner.png
 !/TOOLS/
 /TOOLS/*
 !/TOOLS/*.py
