@@ -1,4 +1,4 @@
-# Rise 2 — Return to the arena
+# Rise 2 : Resurrection Port
 
 ![Rise 2: Resurrection Port banner](assets/ROTR2_Port_Banner.png)
 
