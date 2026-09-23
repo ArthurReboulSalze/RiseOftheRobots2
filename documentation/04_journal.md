@@ -4,6 +4,19 @@
 > Les hypothèses des premières sessions sont conservées pour l'historique ; les documents
 > 05, 09 et 10 décrivent l'état technique actuel.
 
+## Session 19 — 2026-09-23 : ISO de données pour le lecteur virtuel
+
+- `TOOLS/cue_to_iso.py` extrait sans montage la piste MODE1 du CUE/BIN du CD 1
+  Director’s Cut. Sortie privée `LOCAL/directors-cut-cd1-data.iso`, 358 246 400 o,
+  SHA-256 `621b90e46bffb387a15be92cdf971fe2ee0f9085a57766718509a482604c6f42`.
+  Le volume ISO9660 est `RISE2_DC_D1`. Cette ISO ne comporte pas les pistes CDDA.
+- Réimport de l’ISO avec `--import-only` : 1 128 fichiers sur le volume, les 1 122
+  fichiers du jeu sont identiques, SHA-256 par SHA-256, à l’import CUE/BIN.
+  Les 30 robots et 105 ANI sont détectés ; la musique numérique est disponible.
+- L’import d’un lecteur CD virtuel contenant seulement les données tolère une
+  TOC audio indisponible et le signale. Tests synthétiques dédiés réussis.
+  L’essai du lecteur virtuel monté par l’utilisateur reste à effectuer.
+
 ## Session 18 — 2026-09-23 : imports privés, Director’s Cut et dépôt local
 
 - Dépôt Git initialisé sur `main`, sans remote. Liste de fichiers autorisés dans

@@ -12,6 +12,7 @@ import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pycdlib
+from cue_to_iso import convert as cue_to_iso
 from disc_image import SectorReader, extract_cue, read_cue, safe_path
 from import_game import import_music, required_files, run_import, unzip
 from physical_cd import parse_toc, write_audio_tracks
@@ -109,6 +110,18 @@ class Imports(unittest.TestCase):
                 self.assertEqual(f.readframes(1), struct.pack("<hh", 123, -123))
         self.assertEqual((self.root / "profile/game/RBT0.MVS").read_bytes(), (self.game / "RBT0.MVS").read_bytes())
 
+    def test_cue_to_iso_matches_original_data_track(self):
+        original = self.root / "game.iso"
+        make_iso(self.game, original)
+        cue = self.root / "game.cue"
+        make_cue(original, cue)
+        destination = self.root / "converted.iso"
+        result = cue_to_iso(cue, destination)
+        self.assertEqual(destination.read_bytes(), original.read_bytes())
+        self.assertEqual(result["track"], 1)
+        with self.assertRaises(FileExistsError):
+            cue_to_iso(cue, destination)
+
     def test_multi_file_cue_and_sector_seek(self):
         iso = self.root / "game.iso"
         make_iso(self.game, iso)
@@ -151,6 +164,14 @@ class Imports(unittest.TestCase):
         self.assertEqual(report["sources"][0]["kind"], "physical_cd")
         self.assertEqual(report["music"]["selected"], "cd")
         self.assertEqual(report["music"]["tracks"][0]["number"], 2)
+
+    def test_data_only_virtual_cd_imports_without_audio_toc(self):
+        with patch("import_game.optical_drive", return_value=True), patch(
+                "physical_cd.rip_windows_cd", side_effect=OSError("TOC absent")):
+            report = self.run_case(self.game.parent)
+        self.assertEqual(report["sources"][0]["kind"], "physical_cd")
+        self.assertEqual(report["music"]["selected"], "digital")
+        self.assertTrue(any("lecteur virtuel" in warning for warning in report["warnings"]))
 
     def test_duplicate_and_bad_numbered_music(self):
         music = self.root / "music"

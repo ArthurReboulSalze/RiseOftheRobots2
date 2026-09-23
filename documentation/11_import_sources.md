@@ -35,6 +35,8 @@ que toutes les cinématiques ou tous les systèmes du jeu sont déjà jouables.
    piste de données des BIN/CUE est lue directement, sans montage ni exécution.
    MODE1/2048, MODE1/2352 et MODE2/2352 Form 1 sont acceptés ; les limites viennent
    du CUE. Les INDEX 00/01 et PREGAP sont distingués.
+   `TOOLS/cue_to_iso.py` peut aussi copier cette seule piste vers une ISO9660
+   à monter dans un lecteur virtuel Windows ; l’ISO ne contient pas les pistes audio.
 3. Le dossier du jeu est copié dans `game/`, avec noms normalisés en majuscules
    et empreintes SHA-256. Deux éditions différentes ne sont jamais fusionnées.
    Les originaux restent inchangés ; un dossier installé réduit à la configuration
@@ -101,6 +103,8 @@ l’ancienne copie ne doivent pas être réutilisées aveuglément sur la Direct
 | ISO9660 fabriqué depuis ce dossier | Même comparaison sur les 996 fichiers ; numérique choisi sans CD |
 | CUE/BIN Director’s Cut CD 1 seul | Import et conversions complets ; 30 robots, 105 ANI préservés, 9 pistes WAV |
 | CUE/BIN CD 1 + CD 2 | Même jeu et musique principale que CD 1 seul ; bonus séparés |
+| ISO de données issue du CUE/BIN Director’s Cut | 358 246 400 octets ; volume RISE2_DC_D1, 1 128 fichiers dont 1 122 du jeu, empreintes des 1 122 fichiers égales à l’import CUE/BIN |
+| Lecteur virtuel de données simulé sans TOC audio | Données importées, musique numérique choisie et absence de CDDA signalée |
 | Tests synthétiques Python | 22 tests import/LE + 9 tests codecs réussis |
 | Build Release / CTest | Compilation réussie, test fighter_frames réussi |
 | Lecteurs C++ avec profils réels | Logos, titre, portraits et banques des 28 puis 30 robots chargés sans erreur |
@@ -116,6 +120,10 @@ Le lecteur physique utilise les appels Windows de lecture TOC/CDDA, avec contrô
 de longueur et trois tentatives en cas d’erreur. Les tests simulés ne remplacent
 pas un essai avec disque et matériel réels ; il ne s’agit pas d’un rip sécurisé
 avec correction de jitter ou comparaison AccurateRip.
+Pour tester la lecture CDDA en virtuel, monter le CUE/BIN d’origine avec un
+lecteur qui expose les pistes audio. L’ISO de données suffit pour tester la
+détection et la copie des fichiers du jeu depuis un lecteur virtuel ; une TOC
+audio absente ne bloque plus cet import, et le rapport le précise.
 
 Commandes de vérification :
 

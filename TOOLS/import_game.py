@@ -116,7 +116,16 @@ def import_source(source, dest, log):
         if optical_drive(source):
             from physical_cd import rip_windows_cd
             record["kind"] = "physical_cd"
-            record["tracks"] = rip_windows_cd(source.anchor, dest / "music", log)
+            try:
+                record["tracks"] = rip_windows_cd(source.anchor, dest / "music", log)
+            except (OSError, ValueError) as exc:
+                # Some virtual data-only drives do not expose a CDDA TOC. Preserve
+                # the data import; an interrupted audio track remains a hard error.
+                if any((dest / "music").glob("*.wav")):
+                    raise
+                record["tracks"] = []
+                record["audio_error"] = str(exc)
+                log(f"  Pistes CD illisibles sur ce lecteur : {exc}")
             if record["tracks"]:
                 music.append(dest / "music")
         return roots, music, record
@@ -313,6 +322,8 @@ def run_import(sources, output, music=(), music_mode="auto", convert_assets=True
             raise ValueError("Aucune piste audio numérotée trouvée dans --music.")
         audio = choose_music(music_mode, names, tracks)
         warnings = []
+        if any(record.get("audio_error") for record in source_records):
+            warnings.append("Le lecteur virtuel/optique ne fournit pas les pistes CD audio ; données du jeu importées.")
         if not tracks:
             warnings.append("Pas de piste CD audio. Les données musicales MRS/MRW restent disponibles si présentes.")
         elif {t["number"] for t in tracks} != set(range(2, 11)):

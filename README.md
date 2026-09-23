@@ -34,6 +34,17 @@ chaque édition : un profil existant n’est jamais écrasé.
 pistes musicales 02 à 10. Le CD 2 est un disque de bonus ; il n’est pas requis.
 Cette édition servira de base aux prochaines extractions des films et contenus du jeu.
 
+Pour monter ce disque avec l’outil ISO de Windows, extrais sa **piste de données** :
+
+```powershell
+.\.venv\Scripts\python.exe TOOLS/cue_to_iso.py --cue "D:/Disc 1/RISE2_DC_D1.CUE" --output LOCAL/directors-cut-cd1-data.iso
+```
+
+Cette ISO sert à tester l’accès aux données depuis un lecteur virtuel. Elle ne
+contient pas les pistes audio 02 à 10 : pour tester la lecture CDDA depuis un
+lecteur virtuel compatible, monte le **CUE/BIN** d’origine. L’importeur accepte
+un lecteur virtuel de données même s’il n’expose aucune table de pistes audio.
+
 L’outil lit les fichiers sans lancer l’installation ni les exécutables du jeu.
 Il ne fournit pas de jeu et ne télécharge pas ses données.
 
