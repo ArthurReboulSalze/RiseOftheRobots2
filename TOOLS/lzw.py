@@ -1,16 +1,16 @@
-# Décodeur LZW reproduisant EXACTEMENT FUN_0003C731/3C9D0/3CAAC (RISE2.EXR), vérifié sur l'assembleur.
-# - bits LSB-first ; largeur 9 -> 12 (doublement de limite quand next_code >= limite)
-# - 0x100 = CLEAR (réinit, puis lit le code suivant sur 9 bits = littéral 0-255)
-# - 0x101 = EOI ; premier code libre 0x102 ; dictionnaire préfixe/suffixe (256 mots chacun)
-# - prev_code initial = 0 ; après CHAQUE code (y compris le premier) : ajout
-#   table_suffix[next]=root(chaîne courante), table_prefix[next]=prev_code ; next_code++
-# - KwKwK : code >= next_code -> chaîne = decode(prev_code) + root(prev_code)
+# LZW decoder reproducing FUN_0003C731/3C9D0/3CAAC (RISE2.EXR), verified against disassembly.
+# - LSB-first bits; width 9 -> 12 (threshold doubles when next_code reaches it)
+# - 0x100 = CLEAR (reset; the next 9-bit code is a literal from 0 to 255)
+# - 0x101 = EOI; first free code is 0x102; prefix/suffix dictionary (256 entries each)
+# - prev_code starts at 0; add a dictionary entry after EVERY code (including the first)
+#   table_suffix[next]=root(current string), table_prefix[next]=prev_code; next_code++
+# - KwKwK: code >= next_code -> string = decode(prev_code) + root(prev_code)
 
 
 class BitReader:
     def __init__(self, data, bit_pos=0):
         if not 0 <= bit_pos <= len(data) * 8:
-            raise ValueError("Position de lecture hors du flux")
+            raise ValueError("Read position outside stream")
         self.data = data
         self.n = len(data)
         self.pos = bit_pos
@@ -33,7 +33,7 @@ class LZW:
 
     def decode(self, max_out=1 << 26):
         if max_out < 0:
-            raise ValueError("Limite de sortie négative")
+            raise ValueError("Negative output limit")
         width = 9
         limit = 0x200
         next_code = 0x102
@@ -50,11 +50,11 @@ class LZW:
                 width = 9
                 next_code = 0x102
                 limit = 0x200
-                code = self.bits.read(width)   # le code suivant est lu sur 9 bits aussi
+                code = self.bits.read(width)   # The next code is also read at 9 bits.
                 if code == 0x101:
                     break
                 if code > 0xFF:
-                    raise ValueError("CLEAR doit être suivi d'un littéral")
+                    raise ValueError("CLEAR must be followed by a literal")
                 out.append(code & 0xFF)
                 prev_code = code
                 prev_root = code & 0xFF
@@ -62,7 +62,7 @@ class LZW:
                 cur = code
                 string = bytearray()
                 if cur > next_code:
-                    raise ValueError(f"Code LZW invalide : {cur} > {next_code}")
+                    raise ValueError(f"Invalid LZW code: {cur} > {next_code}")
                 if cur == next_code:           # KwKwK
                     cur = prev_code
                     string.append(prev_root & 0xFF)
@@ -70,7 +70,7 @@ class LZW:
                     string.append(suffix[cur])
                     cur = prefix[cur]
                     if len(string) > 0x10000:
-                        raise ValueError("chaîne cyclique")
+                        raise ValueError("Cyclic string")
                 string.append(cur & 0xFF)
                 string.reverse()
                 out += string
@@ -84,7 +84,7 @@ class LZW:
                     limit <<= 1
                     width += 1
             if len(out) > max_out:
-                raise ValueError(f"Sortie LZW supérieure à la limite ({max_out})")
+                raise ValueError(f"LZW output exceeds limit ({max_out})")
         return bytes(out)
 
 
@@ -98,6 +98,6 @@ if __name__ == "__main__":
         for s in ([int(off)] if off else (0, 1, 2)):
             try:
                 dec = LZW(d, s).decode()
-                print("%s@%d: %d -> %d octets ; début=%s" % (name, s, len(d), len(dec), dec[:32].hex(' ')))
+                print("%s@%d: %d -> %d bytes; prefix=%s" % (name, s, len(d), len(dec), dec[:32].hex(' ')))
             except Exception as e:
                 print(name, s, "ERR", type(e).__name__, str(e)[:60])

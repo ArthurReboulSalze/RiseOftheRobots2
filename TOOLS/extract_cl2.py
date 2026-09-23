@@ -1,9 +1,9 @@
-# Convertisseur CL2 -> JSON. Format validé par asm_fn_15d92 :
-#   [16 o header : magic CLL5/CLL6, dwords, u16 count @12, ...]
-#   records depuis l'offset 16 :
-#     rec[0]=b0, rec[1]=b1, rec[2]=b2 ; avance = 3 + b0*5 + b1*6 + b2*5
-#     blocs : b0 blocs de 5 o, b1 blocs de 6 o, b2 blocs de 5 o
-# Sortie : EXTRACTED/data/cl2/<name>.json + resume cl2.json
+# CL2-to-JSON converter. Format verified against asm_fn_15d92:
+#   [16-byte header: magic CLL5/CLL6, dwords, u16 count @12, ...]
+#   Records start at offset 16:
+#     rec[0]=b0, rec[1]=b1, rec[2]=b2; size = 3 + b0*5 + b1*6 + b2*5
+#     blocks: b0 five-byte, b1 six-byte, b2 five-byte
+# Output: EXTRACTED/data/cl2/<name>.json and cl2.json summary.
 import argparse
 import struct, os, json
 from pathlib import Path
@@ -26,11 +26,11 @@ def parse(path):
     records = []
     for i in range(count):
         if off + 3 > len(d):
-            return dict(error="fin prématurée", at=i, off=off)
+            return dict(error="premature end", at=i, off=off)
         b0, b1, b2 = d[off], d[off+1], d[off+2]
         size = 3 + b0*5 + b1*6 + b2*5
         if off + size > len(d):
-            return dict(error="record déborde", at=i, off=off, b0=b0, b1=b1, b2=b2)
+            return dict(error="record exceeds bounds", at=i, off=off, b0=b0, b1=b1, b2=b2)
         body = d[off+3:off+size]
         b0_blocks = [body[j*5:(j+1)*5] for j in range(b0)]
         b1_blocks = [body[b0*5+j*6:b0*5+(j+1)*6] for j in range(b1)]
@@ -74,9 +74,9 @@ def main():
     print(f"CL2 ok={ok} bad={bad}")
     for f, s in summary.items():
         if s['status'] != 'ok':
-            print("  ERREUR", f, s.get('detail'))
+            print("  ERROR", f, s.get('detail'))
     if bad or not ok:
-        raise ValueError("Conversion CL2 incomplète")
+        raise ValueError("Incomplete CL2 conversion")
 
 if __name__ == "__main__":
     main()

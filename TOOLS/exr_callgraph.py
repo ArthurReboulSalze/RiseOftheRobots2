@@ -1,4 +1,4 @@
-# Exporte le graphe d'appels + la liste des fonctions de RISE2_EXR.
+# Export the RISE2_EXR call graph and function list.
 # -> ANALYSIS/exr_functions.txt, ANALYSIS/exr_callgraph.txt
 from ghidra_session import open_rotr2
 import os, sys
@@ -12,16 +12,16 @@ fm = program.getFunctionManager()
 rm = program.getReferenceManager()
 
 funcs = list(fm.getFunctions(True))
-# liste avec tailles
+# Function list with sizes.
 with open(os.path.join(OUT, "exr_functions.txt"), "w") as f:
     for fn in funcs:
-        f.write("%s  %-20s taille=%d\n" % (fn.getEntryPoint(), fn.getName(), fn.getBody().getNumAddresses()))
+        f.write("%s  %-20s size=%d\n" % (fn.getEntryPoint(), fn.getName(), fn.getBody().getNumAddresses()))
 
-# graphe d'appels : appelants -> appelés
+# Call graph: callers -> callees.
 with open(os.path.join(OUT, "exr_callgraph.txt"), "w") as f:
     for fn in funcs:
         callees = fn.getCalledFunctions(monitor) if (monitor := None) is None else None
-        # fallback : via references CALL depuis le corps
+        # Fallback: follow CALL references in the function body.
         callees = set()
         from ghidra.program.model.symbol import RefType
         for addr in fn.getBody().getAddresses(True):
@@ -30,5 +30,5 @@ with open(os.path.join(OUT, "exr_callgraph.txt"), "w") as f:
                     callees.add(ref.getToAddress().getOffset())
         ep = fn.getEntryPoint().getOffset()
         f.write("%x -> %s\n" % (ep, " ".join("%x" % c for c in sorted(callees)) if callees else ""))
-print("fonctions:", len(funcs))
+print("Functions:", len(funcs))
 project.close()

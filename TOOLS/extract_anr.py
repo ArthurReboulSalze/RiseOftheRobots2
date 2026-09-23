@@ -36,9 +36,9 @@ def palette_for(source, stem, frame_id):
         raw = path.read_bytes()[frame_id*210:(frame_id+1)*210]
         label = f"{path.name}@{frame_id*210}"
     else:
-        raise ValueError(f"Palette non encore attribuée pour {stem}")
+        raise ValueError(f"Palette not yet assigned for {stem}")
     if len(raw) != 210:
-        raise ValueError(f"Palette incomplète : {label}")
+        raise ValueError(f"Incomplete palette : {label}")
     rgb = parse_palette(raw)
     return rgb + bytes(768-len(rgb)), label
 
@@ -52,7 +52,7 @@ def export_bank(path, output, individual=False, page_size=2048):
     stem = path.stem
     if stem.startswith(("RBT", "RB4")) and not (path.parent / f"AG{stem[-1]}.GGF").exists():
         if any(v >= 140 for frame in frames for span in frame.spans for v in span.pixels):
-            raise ValueError(f"Palette de décor requise pour les effets de {stem}")
+            raise ValueError(f"Background palette required for effects in {stem}")
     dest = output / stem
     dest.mkdir(parents=True, exist_ok=True)
     is_low = stem.startswith("RB4") or stem == "V4FACE"
@@ -85,7 +85,7 @@ def export_bank(path, output, individual=False, page_size=2048):
         image = render_frame(frame, palette)
         w, h = image.size
         if max(w, h) + 2 > page_size:
-            raise ValueError("Frame trop grande pour l'atlas")
+            raise ValueError("Frame too large for the atlas")
         if x + w + 1 > page_size:
             x = 1
             y += row_height + 2
@@ -109,7 +109,7 @@ def export_bank(path, output, individual=False, page_size=2048):
                   "uses_opponent_palette": any(70 <= v < 140 for s in frame.spans for v in s.pixels)}
         if stem in ("VSFACE", "V4FACE"):
             if i >= len(ALPHABET):
-                raise ValueError(f"Portrait {i} sans correspondance connue dans {stem}")
+                raise ValueError(f"Portrait {i} has no known mapping in {stem}")
             record["robot_slot"] = ALPHABET[i]
         manifest["frames"].append(record)
         if individual:
@@ -156,11 +156,11 @@ def main():
         catalog.append({k:manifest[k] for k in ("bank", "source_size", "frame_count", "pages")})
         if stem.startswith("RBT"):
             roster.append((manifest, preview))
-        print(f"{stem}: {manifest['frame_count']} frames, {len(manifest['pages'])} planches", flush=True)
+        print(f"{stem}: {manifest['frame_count']} frames, {len(manifest['pages'])} atlas pages", flush=True)
     save_json(args.output / "catalog.json", catalog)
     if roster:
         make_roster(roster, args.output)
-    print(f"Total : {len(catalog)} banques, {sum(m['frame_count'] for m in catalog)} frames")
+    print(f"Total: {len(catalog)} banks, {sum(m['frame_count'] for m in catalog)} frames")
 
 
 if __name__ == "__main__":

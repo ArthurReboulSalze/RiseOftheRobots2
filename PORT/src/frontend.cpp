@@ -15,7 +15,7 @@ Frontend::Frontend(SDL_Renderer* renderer, Assets& assets, const std::string& as
       intro_(assets.load_video("LLOGO")), portraits_(assets.load_atlas("VSFACE")),
       title_(assets.load_ggf("MAINSCR")), versus_(assets.load_ggf("VS")) {
     if (intro_->frames.empty() || (portraits_->frames.size() != 28 && portraits_->frames.size() != 30))
-        throw std::runtime_error("intro ANI ou portraits VSFACE incomplets");
+        throw std::runtime_error("Incomplete intro ANI or VSFACE portraits");
     robot_count_ = static_cast<int>(portraits_->frames.size());
 }
 
@@ -61,7 +61,7 @@ void Frontend::key(SDL_Keycode key) {
 }
 
 double Frontend::intro_frame_duration() const {
-    if (intro_frame_ == 0) return 1.5; // carton legal, la palette DOS fondait progressivement
+    if (intro_frame_ == 0) return 1.5; // Legal card; the DOS palette faded in gradually.
     if (intro_frame_ < 12) return 0.22;
     if (intro_frame_ + 1 == static_cast<int>(intro_->frames.size())) return 0.8;
     return 0.045;
@@ -87,7 +87,7 @@ void Frontend::draw_background(SDL_Texture* texture) const {
 
 void Frontend::draw_title() const {
     draw_background(title_);
-    const char* items[] = {"DEMARRAGE", "INSTALLATION", "HIGH SCORE", "CREDITS", "QUITTER"};
+    const char* items[] = {"START", "SETUP", "HIGH SCORE", "CREDITS", "QUIT"};
     for (int i = 0; i < 5; ++i) {
         SDL_Color color = (i == 0 || i == 4)
             ? ((i == (title_choice_ == 0 ? 0 : 4)) ? gold : blue) : grey;
@@ -119,12 +119,12 @@ void Frontend::draw_portrait(int player_index) const {
 
 void Frontend::draw_select() const {
     draw_background(versus_);
-    font_.draw("CHOIX DES ROBOTS", 320, 6, blue, 15, 20, true);
+    font_.draw("SELECT ROBOTS", 320, 6, blue, 15, 20, true);
     draw_portrait(0);
     draw_portrait(1);
     font_.draw("<", 14, 209, cyan, 18, 25);
     font_.draw(">", 610, 209, gold, 18, 25);
-    font_.draw("P1 FLECHES    P2 A/D    ENTREE COMBAT    ECHAP MENU",
+    font_.draw("P1 ARROWS    P2 A/D    ENTER FIGHT    ESC MENU",
                320, 369, blue, 9, 14, true);
 }
 

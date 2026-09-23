@@ -40,14 +40,14 @@ class Frame:
 def decode_frame(data, start=0, end=None):
     end = len(data) if end is None else end
     if not 0 <= start < end <= len(data):
-        raise SpriteFormatError("Limites de frame invalides")
+        raise SpriteFormatError("Invalid frame bounds")
     pos = start
     previous_y = previous_end = None
     spans = []
 
     def need(count):
         if pos + count > end:
-            raise SpriteFormatError(f"Segment tronqué à 0x{pos:x}")
+            raise SpriteFormatError(f"Truncated span at 0x{pos:x}")
 
     while pos < end:
         need(2)
@@ -55,7 +55,7 @@ def decode_frame(data, start=0, end=None):
         pos += 2
         if token == 0xffff:
             if pos != end:
-                raise SpriteFormatError(f"Fin prématurée à 0x{pos:x}, attendue 0x{end:x}")
+                raise SpriteFormatError(f"Premature end at 0x{pos:x}, expected 0x{end:x}")
             return Frame(start, end, tuple(spans))
         if not token & 0xc000:
             need(2)
@@ -65,7 +65,7 @@ def decode_frame(data, start=0, end=None):
             length = token >> 3
         else:
             if previous_y is None:
-                raise SpriteFormatError("Premier segment relatif sans coordonnées absolues")
+                raise SpriteFormatError("First relative span lacks absolute coordinates")
             if not token & 0x8000:
                 y = previous_y + 1 + ((token & 0x3fff) >> 12)
                 need(1)
@@ -83,30 +83,30 @@ def decode_frame(data, start=0, end=None):
                     pos += 1
                     length = (token >> 2) & 0x3ff
         if length == 0:
-            raise SpriteFormatError(f"Segment vide à 0x{pos:x}")
+            raise SpriteFormatError(f"Empty span at 0x{pos:x}")
         if x + length > 4096 or y >= 4096:
-            raise SpriteFormatError(f"Coordonnées excessives : {x}, {y}, {length}")
+            raise SpriteFormatError(f"Excessive coordinates : {x}, {y}, {length}")
         need(length)
         spans.append(Span(x, y, bytes(data[pos:pos + length])))
         pos += length
         previous_y, previous_end = y, x + length
-    raise SpriteFormatError("Terminateur 0xffff manquant")
+    raise SpriteFormatError("Missing 0xffff terminator")
 
 
 def read_bank(path):
     path = Path(path)
     if path.suffix.upper() not in (".ANL", ".ANR"):
-        raise SpriteFormatError("Une paire ANL/ANR est nécessaire")
+        raise SpriteFormatError("An ANL/ANR pair is required")
     index = path.with_suffix(".ANL").read_bytes()
     data = path.with_suffix(".ANR").read_bytes()
     if len(index) < 2:
-        raise SpriteFormatError("Index ANL tronqué")
+        raise SpriteFormatError("Truncated ANL index")
     count, = struct.unpack_from("<H", index)
     if not count or len(index) != 2 + count * 4:
-        raise SpriteFormatError("Taille de l'index ANL incompatible avec son compteur")
+        raise SpriteFormatError("ANL index size does not match its count")
     offsets = struct.unpack_from(f"<{count}I", index, 2) + (len(data),)
     if offsets[0] != 0 or any(a >= b for a, b in zip(offsets, offsets[1:])):
-        raise SpriteFormatError("Offsets ANL non croissants ou premier offset non nul")
+        raise SpriteFormatError("ANL offsets are not increasing or the first offset is not zero")
     frames = []
     for i, (start, end) in enumerate(zip(offsets, offsets[1:])):
         try:
@@ -135,7 +135,7 @@ def indexed_frame(frame):
 def render_frame(frame, palette):
     """Return a cropped RGBA image; retain frame.bbox as its drawing origin."""
     if len(palette) != 768:
-        raise ValueError("Palette RGB de 256 couleurs requise")
+        raise ValueError("A 256-color RGB palette is required")
     indices, alpha = indexed_frame(frame)
     image = Image.frombytes("P", indices.size, indices.tobytes())
     image.putpalette(palette)

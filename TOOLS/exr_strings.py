@@ -1,4 +1,4 @@
-# Export des chaînes du programme RISE2_EXR avec xrefs -> ANALYSIS/exr_strings.txt
+# Export RISE2_EXR strings with cross-references to ANALYSIS/exr_strings.txt.
 from ghidra_session import open_rotr2
 
 from project_paths import ROOT as PROJECT_ROOT, SOURCE, ANALYSIS
@@ -26,5 +26,5 @@ for d in listing.getDefinedData(True):
             break
     lines.append("%s refs=[%s] %r" % (d.getAddress(), ",".join(refs), val))
 open(OUT, "w", encoding="utf-8", errors="replace").write("\n".join(lines))
-print("chaînes:", len(lines), "->", OUT)
+print("Strings:", len(lines), "->", OUT)
 project.close()

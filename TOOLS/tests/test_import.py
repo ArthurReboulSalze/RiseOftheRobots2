@@ -83,7 +83,7 @@ class Imports(unittest.TestCase):
         report = self.run_case(self.game, music=[music])
         self.assertEqual(report["music"]["selected"], "cd")
         self.assertEqual([t["file"] for t in report["music"]["tracks"]], ["02.wav", "03.wav"])
-        self.assertTrue(any("incomplète" in w for w in report["warnings"]))
+        self.assertTrue(any("incomplete" in w for w in report["warnings"]))
 
     def test_zip_and_iso_equal_folder(self):
         baseline = self.run_case(self.game, "folder")
@@ -171,16 +171,16 @@ class Imports(unittest.TestCase):
             report = self.run_case(self.game.parent)
         self.assertEqual(report["sources"][0]["kind"], "physical_cd")
         self.assertEqual(report["music"]["selected"], "digital")
-        self.assertTrue(any("lecteur virtuel" in warning for warning in report["warnings"]))
+        self.assertTrue(any("virtual/optical drive" in warning for warning in report["warnings"]))
 
     def test_duplicate_and_bad_numbered_music(self):
         music = self.root / "music"
         fake_wav(music / "01.wav")
-        with self.assertRaisesRegex(ValueError, "Numéro"):
+        with self.assertRaisesRegex(ValueError, "Ambiguous track number"):
             self.run_case(self.game, music=[music])
         (music / "01.wav").rename(music / "02.wav")
         fake_wav(music / "Piste 02.wav")
-        with self.assertRaisesRegex(ValueError, "Deux fichiers"):
+        with self.assertRaisesRegex(ValueError, "Two files"):
             self.run_case(self.game, music=[music])
         self.assertFalse((self.root / "profile").exists())
 
@@ -188,22 +188,22 @@ class Imports(unittest.TestCase):
         output = self.root / "profile"
         output.mkdir()
         (output / "precious.txt").write_text("keep")
-        with self.assertRaisesRegex(ValueError, "existe déjà"):
+        with self.assertRaisesRegex(ValueError, "Profile already exists"):
             self.run_case(self.game)
         self.assertEqual((output / "precious.txt").read_text(), "keep")
         (self.game / "VSFACE.ANL").unlink()
-        with self.assertRaisesRegex(ValueError, "manquantes"):
+        with self.assertRaisesRegex(ValueError, "Required port data missing"):
             self.run_case(self.game, "missing")
         self.assertFalse((self.root / "missing").exists())
 
     def test_two_versions_not_silently_merged(self):
         other = fake_game(self.root / "original/other")
         (other / "RBT0.MVS").write_bytes(b"different edition")
-        with self.assertRaisesRegex(ValueError, "Plusieurs versions"):
+        with self.assertRaisesRegex(ValueError, "Different game editions"):
             self.run_case(self.game.parent)
 
     def test_requested_unavailable_cd_fails(self):
-        with self.assertRaisesRegex(ValueError, "absentes"):
+        with self.assertRaisesRegex(ValueError, "no available data"):
             self.run_case(self.game, music_mode="cd")
 
     def test_zip_rejects_traversal_collisions_and_links(self):

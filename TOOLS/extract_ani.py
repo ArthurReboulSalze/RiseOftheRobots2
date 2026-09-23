@@ -1,4 +1,4 @@
-"""Decode all supplied ANI movies with the DOS player's RLE/delta rules.
+"""Decode the three known ANI movies with the DOS player's RLE/delta rules.
 
 Low-res path: 0x351e6 -> 0x34bee -> 0x323d4/0x32474.
 High-res path: 0x347bf -> 0x32171/0x322a2.
@@ -30,7 +30,7 @@ class Reader:
 
     def take(self, size: int) -> bytes:
         if size < 0 or self.pos + size > len(self.data):
-            raise ValueError(f"ANI tronque a 0x{self.pos:x} (demande {size} octets)")
+            raise ValueError(f"ANI truncated at 0x{self.pos:x} (requested {size} bytes)")
         result = self.data[self.pos:self.pos + size]
         self.pos += size
         return result
@@ -50,11 +50,11 @@ def decode(data: bytes, width: int, height: int, content_height: int) -> tuple[l
     reader = Reader(data)
     count = reader.u16()
     if not 1 <= count <= 256:
-        raise ValueError(f"nombre de frames ANI invalide : {count}")
+        raise ValueError(f"Invalid ANI frame count: {count}")
     pixels = bytearray(width * height)
     top = (height - content_height) // 2
 
-    # 0x323d4 : une ligne = octet de nombre de commandes, puis RLE signe.
+    # 0x323d4: each row has a command-count byte followed by signed RLE.
     for row in range(content_height):
         commands = reader.u8()
         line = bytearray()
@@ -65,25 +65,25 @@ def decode(data: bytes, width: int, height: int, content_height: int) -> tuple[l
             else:
                 line.extend(bytes([reader.u8()]) * run)
         if len(line) != width:
-            raise ValueError(f"ligne initiale {row} : {len(line)} pixels au lieu de {width}")
+            raise ValueError(f"Initial row {row}: {len(line)} pixels instead of {width}")
         offset = (top + row) * width
         pixels[offset:offset + width] = line
 
     if reader.pos & 1:
         reader.take(1)
     palette_6bit = bytearray(reader.take(768))
-    palette_6bit[0:3] = b"\0\0\0"  # le lecteur DOS force le noir sur l'index 0
+    palette_6bit[0:3] = b"\0\0\0"  # The DOS reader forces black at index 0.
     if max(palette_6bit) > 63:
-        raise ValueError("palette ANI hors plage VGA 6 bits")
+        raise ValueError("ANI palette outside 6-bit VGA range")
     palette = bytes((value << 2) | (value >> 4) for value in palette_6bit)
     frames = [bytes(pixels)]
 
-    # 0x32474 : lignes modifiees en mots de 2 pixels ; un mot negatif saute
-    # des lignes, un mot positif donne le nombre de paquets de la ligne.
+    # 0x32474: changed lines use two-pixel words; a negative word skips
+    # rows, while a positive word gives the packet count for the row.
     for frame_index in range(1, count):
         changed_lines = reader.u16()
         if not 1 <= changed_lines <= height:
-            raise ValueError(f"frame {frame_index} : {changed_lines} lignes modifiees")
+            raise ValueError(f"Frame {frame_index}: {changed_lines} changed rows")
         row = top
         for _ in range(changed_lines):
             packets = reader.u16()
@@ -91,9 +91,9 @@ def decode(data: bytes, width: int, height: int, content_height: int) -> tuple[l
                 row += 0x10000 - packets
                 packets = reader.u16()
             if not 1 <= packets <= width:
-                raise ValueError(f"frame {frame_index}, ligne {row} : {packets} paquets")
+                raise ValueError(f"Frame {frame_index}, row {row}: {packets} packets")
             if not 0 <= row < height:
-                raise ValueError(f"frame {frame_index} : ligne {row} hors ecran")
+                raise ValueError(f"Frame {frame_index}: row {row} outside screen")
             dst = row * width
             for _ in range(packets):
                 dst += reader.u8()
@@ -104,14 +104,14 @@ def decode(data: bytes, width: int, height: int, content_height: int) -> tuple[l
                 else:
                     block = reader.take(run * 2)
                 if dst + len(block) > (row + 1) * width:
-                    raise ValueError(f"frame {frame_index} : paquet depasse la ligne {row}")
+                    raise ValueError(f"Frame {frame_index}: packet exceeds row {row}")
                 pixels[dst:dst + len(block)] = block
                 dst += len(block)
             row += 1
         frames.append(bytes(pixels))
 
     if reader.pos != len(data):
-        raise ValueError(f"{len(data) - reader.pos} octets non consommes a la fin d'ANI")
+        raise ValueError(f"{len(data) - reader.pos} unconsumed bytes at ANI end")
     return frames, palette
 
 
@@ -141,7 +141,7 @@ def main() -> None:
         (output / "manifest.json").write_text(
             json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
         )
-        print(f"{len(frames)} frames extraites -> {output}")
+        print(f"{len(frames)} frames extracted -> {output}")
 
 
 if __name__ == "__main__":

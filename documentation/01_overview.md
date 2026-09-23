@@ -1,48 +1,40 @@
-# 01 — Vue d'ensemble du projet
+# 01 — Project overview
 
-## Objectif
+## Goal
 
-Portage de **RISE 2: Resurrection** (1996, Mirage Technologies / Acclaim Entertainment) — jeu de combat 2D DOS, vers des plateformes modernes (cible principale : Windows).
+Port **Rise 2: Resurrection** (1996, Mirage Technologies / Acclaim Entertainment), a 2D DOS fighting game, to modern platforms, with Windows as the initial target.
 
-## Nature du jeu (pour orienter le portage)
+## Game structure
 
-- Jeu de combat **2D** en vue de face, deux combattants à l'écran.
-- **Fonds animés : boucles vidéo pré-calculées** (stream vidéo en boucle) — pas de rendu temps réel du décor.
-- **Combattants : images pré-rendues 3D** — planches fixes d'images animées (frames d'animations 3D calculées à l'avance, comme le jeu original).
-- Conséquence : le portage n'a **pas besoin de moteur 3D** ; il consomme des planches d'images + des scripts d'animation, comme le jeu original.
+- Two fighters appear in a **2D** side-view arena.
+- Animated backgrounds use pre-rendered loops, not real-time 3D scenery.
+- The fighters are pre-rendered 3D models represented in the game as 2D animation frames.
+- The port therefore consumes image atlases and animation scripts; it does not need a 3D engine.
 
-## Inventaire des sources (`SRC/`)
+## Local source inventory (`SRC/`, excluded from Git)
 
-| Élément | Rôle |
+| Source | Role |
 |---|---|
-| `DOS_version_install_cracked/` | Ancienne copie DOS, identique à l’ancienne extraction ISO ; 28 robots, cinématiques longues retirées. Référence des adresses historiques. |
-| `ISO_version_install/` | Extraction de l'ISO — mêmes fichiers. Ne sert qu'à corroborer. |
-| `DOS_Installed_Files/ACCLAIM/RISE2/` | État après installation : `RISE2.CFG` (config binaire : touches/options) + `HISCORE.DAT` (high scores). |
-| `Rise 2 Directors Cut/Disc 1/` | BIN/CUE du jeu : 1 122 fichiers dans RISE2, 30 robots, 105 ANI, neuf pistes audio. Base retenue pour les prochaines extractions. |
-| `Rise 2 Directors Cut/Disc 2/` | Bonus FLC/GIF/WAV/documents ; non requis pour le port. |
+| `DOS_version_install_cracked/` | Older complete DOS copy, byte-identical to the older extracted ISO. It has 28 robots and stripped long cinematics. Historical executable addresses refer to this copy. |
+| `ISO_version_install/` | Extracted older ISO, used to corroborate the DOS folder. |
+| `DOS_Installed_Files/ACCLAIM/RISE2/` | Minimal installed state: `RISE2.CFG` (controls/options) and `HISCORE.DAT` (scores). |
+| `Rise 2 Directors Cut/Disc 1/` | Game BIN/CUE: 1,122 files under RISE2, 30 robots, 105 ANI files and nine audio tracks. Chosen source for future extraction. |
+| `Rise 2 Directors Cut/Disc 2/` | Bonus FLC/GIF/WAV files and documents; unnecessary for the game port. |
 
-### Structure du jeu (ancienne copie = `SRC/DOS_version_install_cracked/`)
+### Older DOS copy: executable structure
 
-- `RISE2.EXE` (19 724 octets) — **lanceur 16 bits Watcom** : cherche `dos4gw.exe`, **patche `RISE2.EXR`**, puis l'exécute sous DOS/4GW. Ce n'est PAS le jeu.
-- `RISE2/RISE2.EXR` (421 979 octets) — **le vrai binaire du jeu** : exécutable **LE (Linear Executable) 32 bits DOS/4GW** (magic `LE` à l'offset `e_lfanew = 0xAD8`).
-- `RISE2/DOS4GW.EXE` (265 Ko) — extendeur DOS/4GW Rational.
-- `RISE2/RISE2.CFG` etc. — voir [05_formats_donnees.md](05_formats_donnees.md) pour l'inventaire des formats.
+- `RISE2.EXE` (19,724 bytes) is a **16-bit Watcom launcher**. It locates `dos4gw.exe`, patches `RISE2.EXR` and starts it under DOS/4GW. It is not the main game.
+- `RISE2/RISE2.EXR` (421,979 bytes) is the main **32-bit LE (Linear Executable)** DOS/4GW program. Its LE signature is at the MZ header's `e_lfanew = 0xAD8`.
+- `RISE2/DOS4GW.EXE` (about 265 KB) is the Rational DOS extender.
+- See [document 05](05_data_formats.md) for data files.
 
-### Constats clés
+### Findings that affect analysis
 
-1. Les deux anciennes distributions (dossier DOS / extraction ISO) sont identiques.
-   La Director’s Cut ajoutée ensuite est différente : ne pas mélanger ses banques
-   ou ses adresses d’exécutable avec celles de l’ancienne copie. Voir document 11.
-2. Le lanceur **patche `RISE2.EXR`** avant exécution (chaînes : `Patching main executable from C:\ACCLAIM\RISE2\RISE2.EXR`, `%s\RISE2.EXR`, `.\rise2\rise2.exr`) — à comprendre en priorité : le binaire final exécuté est l'EXR **patché**, donc l'analyse de l'EXR devra tenir compte du patch.
-3. **Ghidra 12.1.4 n'a pas de loader LE/LX natif** → le loader maison `TOOLS/le2flat.py` et l'import PyGhidra sont maintenant réalisés. L'image de ce jeu commence à **0x10000**. Les routines d'images ont été vérifiées par exécution x86 ; voir les documents 06 et 07.
-4. Messages d'erreur lisibles dans `RISE2/ERRORS.TXT` (numérotés, ex. « Error reading GGF ») : points d'ancrage excellents pour cartographier le code du binaire.
+1. The two **older** distributions are identical. Director's Cut is a different build; do not combine its banks or executable addresses with the older copy. See document 11.
+2. The launcher patches `RISE2.EXR` before starting it. Strings include `Patching main executable from C:\ACCLAIM\RISE2\RISE2.EXR` and relative lookup paths. The exact in-memory patch behavior remains a separate analysis question.
+3. Ghidra 12.1.4 did not provide a usable LE/LX loader in this environment. `TOOLS/le2flat.py` and PyGhidra import the flattened image at its actual base, **0x10000**. Image routines were also checked against x86 execution; see documents 06 and 07.
+4. `RISE2/ERRORS.TXT` contains readable, numbered messages such as "Error reading GGF," which help locate loader routines.
 
-## État de la chaîne d'outils
+## Current extracted images
 
-Voir [03_environnement.md](03_environnement.md).
-
-## Résultat actuel : images décodées
-
-185 GGF lisibles, 28 robots dans les deux résolutions et 56 portraits exportés
-(18 522 frames sur 139 planches). Galerie : `EXTRACTED/index.html`.
-Formats corrigés, validation et limites : [07_decodage_images.md](07_decodage_images.md).
+The older copy yielded 185 readable GGF images and 28 robots in two resolutions, with 56 portraits: 18,522 frames on 139 atlas pages. The local gallery is `EXTRACTED/index.html`. Director's Cut adds two robots. See [image decoding](07_image_decoding.md) for validation and remaining limits.

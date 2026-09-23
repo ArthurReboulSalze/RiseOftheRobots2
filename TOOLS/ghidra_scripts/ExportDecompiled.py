@@ -1,4 +1,4 @@
-# Exporte : liste des fonctions, décompilé C, chaînes + xrefs.
+# Export function list, decompiled C, strings, and cross-references.
 # Usage headless : -postScript ExportDecompiled.py <output_dir>
 from ghidra.app.decompiler import DecompInterface
 from ghidra.util.task import ConsoleTaskMonitor
@@ -13,7 +13,7 @@ fm = program.getFunctionManager()
 listing = program.getListing()
 monitor = ConsoleTaskMonitor()
 
-# --- liste des fonctions + décompilé ---
+# --- Function list and decompiled C ---
 iface = DecompInterface()
 iface.openProgram(program)
 
@@ -30,7 +30,7 @@ with open(func_list_path, "w") as fl, open(decomp_path, "w") as dc:
             dc.write("// decompilation failed: %s\n" % res.getErrorMessage())
         dc.write("\n\n")
 
-# --- chaînes définies + xrefs ---
+# --- Defined strings and cross-references ---
 strings_path = os.path.join(OUT_DIR, "strings.txt")
 with open(strings_path, "w") as sf:
     for d in listing.getDefinedData(True):

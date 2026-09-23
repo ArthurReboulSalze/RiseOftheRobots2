@@ -1,4 +1,4 @@
-# Export du listing assembleur complet (instructions + données) d'un programme Ghidra/PyGhidra.
+# Export a Ghidra/PyGhidra program's full assembly listing (instructions and data).
 # Usage : python TOOLS/export_listing.py <binary> <out_listing.txt>
 import os, sys
 

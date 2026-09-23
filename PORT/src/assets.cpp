@@ -8,7 +8,7 @@ using nlohmann::json;
 
 static std::string read_file(const std::string& path) {
     FILE* fp = fopen(path.c_str(), "rb");
-    if (!fp) throw std::runtime_error("fichier introuvable: " + path);
+    if (!fp) throw std::runtime_error("File not found: " + path);
     std::string text;
     char buf[65536];
     size_t n;
@@ -117,7 +117,7 @@ const MvsBank* Assets::load_mvs(const std::string& bank) {
             }
             mo.sequences.push_back(std::move(seq));
         }
-        // movements : tableau de 3 tableaux d'int16 (un pas par image de la séquence)
+        // movements: three int16 arrays, one step per sequence image
         mo.movements.clear();
         for (auto& arr : mv["movements"]) {
             std::vector<int16_t> steps;

@@ -6,7 +6,7 @@ UiFont::UiFont(SDL_Renderer* renderer, const std::string& assets_dir)
     : renderer_(renderer), texture_(nullptr) {
     const std::string path = assets_dir + "/ui/font.png";
     texture_ = IMG_LoadTexture(renderer_, path.c_str());
-    if (!texture_) throw std::runtime_error("police UI introuvable: " + path);
+    if (!texture_) throw std::runtime_error("UI font not found: " + path);
     SDL_SetTextureBlendMode(texture_, SDL_BLENDMODE_BLEND);
 }
 

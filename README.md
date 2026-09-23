@@ -1,17 +1,12 @@
-# Rise 2 — retour dans l’arène
+# Rise 2 — Return to the arena
 
-Un port communautaire expérimental de **Rise 2: Resurrection**, en C++17 et SDL2.
-Le projet reconstruit les images, mouvements, collisions et sons à partir de **ta propre copie du jeu**.
+An experimental community port of **Rise 2: Resurrection**, built with C++17 and SDL2. It reconstructs images, movement, collisions and audio from **your own copy of the game**.
 
-Ce dépôt contient notre code, nos outils et nos notes de recherche. Il ne contient
-ni jeu original, ni images, films, musique, exécutables DOS ou résultats de décompilation.
-Les imports et conversions restent sur ton ordinateur. Projet indépendant, sans affiliation aux ayants droit.
-Notre code et notre documentation sont publiables sous [licence MIT](LICENSE) ;
-les données du jeu conservent les droits de leurs propriétaires.
+This repository contains our code, tools and research notes. It contains no original game files, artwork, movies, music, DOS executables or decompiler output. Imported and converted data stay on your computer. This is an independent project, unaffiliated with the game's rights holders. Our code and documentation are available under the [MIT license](LICENSE); the game data retain their owners' rights.
 
-## Préparer ton jeu
+## Import your copy
 
-Il te faut **Python 3.12 ou plus récent**. Sous Windows, ouvre PowerShell dans ce dossier :
+You need **Python 3.12 or later**. On Windows, open PowerShell in this directory:
 
 ```powershell
 python -m venv .venv
@@ -19,125 +14,93 @@ python -m venv .venv
 .\IMPORTER.cmd
 ```
 
-Dans la fenêtre, ajoute tes sources, éventuellement un dossier de musique séparé,
-puis clique sur **Importer et préparer les données**. Donne un nom différent à
-chaque édition : un profil existant n’est jamais écrasé.
+Add one or more sources in the import window. You can also add a separate music folder. Choose a different profile name for each edition: an existing profile is never overwritten.
 
-| Ce que tu possèdes | Comment l’importer |
+| What you have | What to select |
 |---|---|
-| Un dossier de jeu | Sélectionne le dossier contenant les banques RBT, ou son parent. Le petit dossier installé qui ne contient que la configuration ne suffit pas. |
-| Une archive ZIP | Sélectionne le ZIP ; les sous-dossiers sont reconnus. |
-| Un fichier ISO | Sélectionne l’image ISO9660. La musique CD peut être ajoutée séparément. |
-| Un BIN et son CUE | Sélectionne le **CUE**. Les données et pistes CD audio sont extraites avec leurs numéros. |
-| Plusieurs disques | Ajoute chaque CUE/ISO. Le disque contenant les banques du jeu fournit la musique principale ; les bonus restent séparés. |
-| Un CD physique sous Windows | Sélectionne la racine du lecteur. Les données sont copiées et les pistes audio lues via le lecteur. Ce chemin nécessite encore une validation matérielle. |
+| A game folder | Select the folder containing the RBT banks, or its parent. An installed folder containing only configuration files is insufficient. |
+| A ZIP archive | Select the ZIP. Nested folders are detected. |
+| An ISO file | Select the ISO9660 image. CD audio can be supplied separately. |
+| A BIN/CUE image | Select the **CUE**, keeping its BIN beside it. The data and numbered CD audio tracks are extracted. |
+| Multiple discs | Add each CUE or ISO. The disc containing the game banks supplies the main soundtrack; bonus discs remain separate. |
+| A physical Windows CD | Select the drive root. The importer copies data files and reads audio tracks from the drive. This path still needs a test with real optical hardware. |
 
-**Director’s Cut : le CD 1 suffit.** Il contient le jeu, 30 robots et les neuf
-pistes musicales 02 à 10. Le CD 2 est un disque de bonus ; il n’est pas requis.
-Cette édition servira de base aux prochaines extractions des films et contenus du jeu.
+**Director's Cut needs only Disc 1.** It contains the game, 30 robots and CD audio tracks 02–10. Disc 2 contains bonus material and is optional. Disc 1 is the source chosen for future movie and game-content extraction.
 
-Pour monter ce disque avec l’outil ISO de Windows, extrais sa **piste de données** :
+To mount the data track with Windows' built-in ISO mounter, create a data-only ISO:
 
 ```powershell
 .\.venv\Scripts\python.exe TOOLS/cue_to_iso.py --cue "D:/Disc 1/RISE2_DC_D1.CUE" --output LOCAL/directors-cut-cd1-data.iso
 ```
 
-Cette ISO sert à tester l’accès aux données depuis un lecteur virtuel. Elle ne
-contient pas les pistes audio 02 à 10 : pour tester la lecture CDDA depuis un
-lecteur virtuel compatible, monte le **CUE/BIN** d’origine. L’importeur accepte
-un lecteur virtuel de données même s’il n’expose aucune table de pistes audio.
+This ISO can test game-data access through a virtual CD drive. It cannot contain CD audio tracks 02–10. To test CDDA reading, mount the original **CUE/BIN** in a virtual drive that exposes audio tracks. A data-only virtual CD remains importable even if it provides no audio TOC.
 
-L’outil lit les fichiers sans lancer l’installation ni les exécutables du jeu.
-Il ne fournit pas de jeu et ne télécharge pas ses données.
+The importer reads your files without running the installer or any game executable. It neither supplies nor downloads game data.
 
-### Musique : plusieurs possibilités
+### Music sources
 
-Tu peux fournir des WAV, MP3, FLAC, OGG ou M4A dans un dossier séparé, ou un ZIP
-avec `--music`. Utilise les **numéros du CD** : `02.mp3`, `03.mp3`, … `10.mp3`.
-`Piste 02.mp3` et `Track 02.wav` sont aussi reconnus. Les fichiers sont renommés
-dans le profil sans réencodage ; tes originaux restent intacts. Les doublons et
-numéros ambigus sont refusés plutôt que réaffectés.
+You can provide WAV, MP3, FLAC, OGG or M4A files in a separate folder or ZIP with `--music`. Use the **original CD track numbers**: `02.mp3`, `03.mp3`, … `10.mp3`. Names such as `Track 02.wav`, `Audio 02.flac` and `Piste 02.mp3` are also recognized. The files are copied without transcoding; the originals stay intact. Duplicate or ambiguous numbers are rejected.
 
-Le jeu possède également une **musique numérique séquencée**, dans les six
-couples `MGA` à `MGF` (`.MRS` + `.MRW`). Il ne s’agit pas de fichiers MIDI classiques.
-L’importeur détecte ces banques et conserve les séquences et échantillons.
+The game also contains **sequenced digital music** in six `MGA`–`MGF` bank pairs (`.MRS` + `.MRW`). These are not ordinary MIDI files. The importer detects and retains their sequences and samples.
 
-Le réglage `auto` choisit CD → musique numérique → effets d’ambiance → silence,
-selon les données disponibles. Les choix explicites sont `cd`, `digital`,
-`effects` et `off`. **C’est pour l’instant une configuration d’import** : la
-lecture musicale et le séquenceur MRS ne sont pas encore intégrés au moteur du port.
+The `auto` setting chooses CD audio, then digital music, ambience, then silence according to available data. Explicit choices are `cd`, `digital`, `effects` and `off`. **These are import settings for now:** music playback and the MRS sequencer have not yet been integrated into the port.
 
-### En ligne de commande
+### Command line
 
 ```powershell
-# Dossier + musique séparée
-.\.venv\Scripts\python.exe TOOLS/import_game.py --source "D:/Mes jeux/Rise2" --music "D:/Mes pistes" --output LOCAL/mon-jeu
+# Game folder plus separately supplied music
+.\.venv\Scripts\python.exe TOOLS/import_game.py --source "D:/Games/Rise2" --music "D:/My Tracks" --output LOCAL/my-game
 
-# Director’s Cut : le premier disque seul suffit (BIN à côté du CUE)
+# Director's Cut: Disc 1 alone is sufficient; keep the BIN next to the CUE
 .\.venv\Scripts\python.exe TOOLS/import_game.py --source "D:/Disc 1/RISE2_DC_D1.CUE" --output LOCAL/directors-cut
 
-# ZIP ou ISO sans rip musical ; sélection automatique de la musique numérique
-.\.venv\Scripts\python.exe TOOLS/import_game.py --source "D:/jeu.zip" --music-mode auto --output LOCAL/autre-copie
+# ZIP or ISO without CD audio: choose the available digital music automatically
+.\.venv\Scripts\python.exe TOOLS/import_game.py --source "D:/game.zip" --music-mode auto --output LOCAL/another-copy
 ```
 
-`--import-only` copie, identifie et contrôle les sources sans reconstruire les
-atlas. Le rapport `LOCAL/<profil>/import-report.json` contient les empreintes,
-les pistes, le mode audio et les limites constatées. Un échec ne remplace jamais
-un profil précédent. La conversion des images peut prendre plusieurs minutes.
+`--import-only` copies, identifies and checks sources without rebuilding image atlases. `LOCAL/<profile>/import-report.json` records hashes, tracks, the audio mode and any limitations found. Failed imports leave no new profile. Image conversion can take several minutes.
 
 ```text
-LOCAL/mon-jeu/                 # entièrement privé, ignoré par Git
-  game/                       # données de jeu normalisées
-  sources/                    # disques/images/archives extraits, bonus séparés
-  music/                      # pistes CD 02, 03, … et manifest
-  EXTRACTED/                  # PNG, atlas, WAV, JSON et galerie
+LOCAL/my-game/                 # private, ignored by Git
+  game/                       # normalized game files
+  sources/                    # extracted discs/archives; bonuses separate
+  music/                      # numbered CD tracks and manifest
+  EXTRACTED/                  # PNGs, atlases, WAVs, JSON and gallery
   settings.json
   import-report.json
 ```
 
-## Compiler et jouer
+## Build and play
 
-La compilation actuelle cible **Windows x64**, avec Visual Studio 2022
-(outils C++ et SDK Windows) et CMake 3.20 ou plus. Les bibliothèques sont téléchargées
-depuis leurs projets officiels, à des versions fixes et avec contrôle SHA-256 :
+The current build targets **Windows x64**, using Visual Studio 2022 with its C++ tools and Windows SDK, plus CMake 3.20 or later. Pinned library releases are downloaded from their official projects and verified by SHA-256:
 
 ```powershell
 .\.venv\Scripts\python.exe TOOLS/bootstrap_port.py
 cmake -S PORT -B PORT/build -G "Visual Studio 17 2022" -A x64
 cmake --build PORT/build --config Release
 ctest --test-dir PORT/build -C Release --output-on-failure
-.\PORT\build\Release\rotr2.exe --assets "$PWD/LOCAL/mon-jeu/EXTRACTED"
+.\PORT\build\Release\rotr2.exe --assets "$PWD/LOCAL/my-game/EXTRACTED"
 ```
 
-Le parcours actuel comprend les logos, le titre, la sélection des robots et un
-premier combat. Entrée valide, Échap revient en arrière. Choix des robots :
-flèches pour le joueur 1, A/D pour le joueur 2. En combat : flèches + J/K et W/A/S/D + I/O.
-Le profil classique fournit 28 robots ; la Director’s Cut ajoute les deux banques bonus.
+The current flow shows the logos, title screen, character selection and an initial fight. Enter confirms and Escape goes back. At selection, the arrow keys control player 1 and A/D control player 2. In combat, player 1 uses arrows + J/K and player 2 uses W/A/S/D + I/O. The older edition has 28 robots; Director's Cut adds two more.
 
-Le port est en construction : commandes et combat incomplets, options de menu
-partielles, musique encore à intégrer. Seuls `LLOGO`, `END` et `ENL` sont actuellement
-convertis automatiquement en vidéo ; les autres ANI et bonus sont conservés
-dans le profil pour la suite du travail. La copie complète et une édition amputée
-de ses films sont distinguées dans le rapport.
+The port remains under development: controls and combat are incomplete, some menu options are placeholders, and music still needs to be connected. Only `LLOGO`, `END` and `ENL` are automatically converted into video frames. Other ANI files and bonus content remain in the private profile for future work.
 
-## Extraction et décompilation
+## Extraction and reverse engineering
 
-L’import normal **convertit les données** pour notre moteur C++. Il n’a pas besoin
-de Ghidra et ne transforme pas automatiquement l’exécutable DOS en un nouveau jeu.
-Pour participer à la rétro-ingénierie, les outils d’analyse restent disponibles :
+A normal import **converts data** for the C++ engine. It needs no Ghidra installation and does not turn the DOS executable into a new game automatically. The optional analysis tools use a private profile:
 
 ```powershell
-# Image LE + rapport, dans le profil privé
-.\.venv\Scripts\python.exe TOOLS/prepare_analysis.py --profile LOCAL/mon-jeu
+# Flatten the LE executable and write its report to this private profile
+.\.venv\Scripts\python.exe TOOLS/prepare_analysis.py --profile LOCAL/my-game
 
-# Facultatif : projet Ghidra isolé (Ghidra, JDK compatible et pyghidra à installer)
-python TOOLS/prepare_analysis.py --profile LOCAL/mon-jeu --ghidra "C:/Outils/ghidra" --java-home "C:/Outils/jdk"
+# Optional isolated Ghidra project (requires Ghidra, a compatible JDK and pyghidra)
+python TOOLS/prepare_analysis.py --profile LOCAL/my-game --ghidra "C:/Tools/ghidra" --java-home "C:/Tools/jdk"
 ```
 
-Les sorties d’analyse et de décompilation restent locales. Voir
-[la documentation](documentation/README.md) et [les imports et leurs tests](documentation/11_import_sources.md).
+Analysis output and decompilation remain local. See the [documentation](documentation/README.md) and the [source-import report](documentation/11_source_imports.md).
 
-## Développer sans données du jeu
+## Develop without game files
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s TOOLS/tests -v
@@ -145,16 +108,8 @@ Les sorties d’analyse et de décompilation restent locales. Voir
 python TOOLS/audit_repo.py --staged
 ```
 
-Après un import, `PORT/build/Release/rotr2_asset_smoke.exe LOCAL/mon-jeu/EXTRACTED`
-vérifie aussi les menus et le chargement de tous les robots sans ouvrir de fenêtre.
+After an import, `PORT/build/Release/rotr2_asset_smoke.exe LOCAL/my-game/EXTRACTED` checks menus and every robot bank without opening a window.
 
-Les tests automatisés fabriquent leurs propres petites images disque et leurs
-propres échantillons ; aucun fichier original n’est nécessaire. L’audit vérifie
-le contenu de l’index Git : seuls les chemins de code et de documentation prévus
-sont admis. `SRC`, `LOCAL`, `EXTRACTED`, les captures, les projets Ghidra, les
-builds et les dépendances téléchargées sont exclus.
+Automated tests build small synthetic disc images and samples; they need no original game data. The Git index audit allows only known code and documentation paths. `SRC`, `LOCAL`, `EXTRACTED`, captures, Ghidra projects, builds and downloaded dependencies are excluded.
 
-Avant publication, il reste à valider le CD physique réel. Les noms et contenus
-du jeu restent ceux de leurs ayants droit.
-Les dépendances conservent leurs licences respectives : SDL2/SDL2_image (zlib),
-nlohmann/json (MIT), Pillow et pycdlib (voir leurs distributions).
+Before release, the physical-CD path still needs real hardware validation. SDL2/SDL2_image, nlohmann/json, Pillow and pycdlib retain their own licenses; see their distributions.

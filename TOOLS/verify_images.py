@@ -30,9 +30,9 @@ def verify(source=SRC, extracted=ROOT / "EXTRACTED"):
             continue
         with Image.open(extracted / "ggf" / f"{path.stem}.png") as image:
             if image.mode != "P" or image.size != decoded.size or image.tobytes() != decoded.pixels:
-                raise ValueError(f"PNG GGF différent des pixels source : {path.name}")
+                raise ValueError(f"GGF PNG differs from source pixels : {path.name}")
             if bytes(image.getpalette()) != decoded.palette:
-                raise ValueError(f"Palette GGF différente : {path.name}")
+                raise ValueError(f"GGF palette differs : {path.name}")
         report["ggf"].append({"name": path.name, "status": "exact_png_roundtrip"})
     for path in sorted((extracted / "sprites").glob("*/manifest.json")):
         manifest = json.loads(path.read_text(encoding="utf-8"))
@@ -42,12 +42,12 @@ def verify(source=SRC, extracted=ROOT / "EXTRACTED"):
             x,y,w,h = f["rect"]
             image = pages[f["page"]].crop((x,y,x+w,y+h))
             if hashlib.sha256(image.tobytes()).hexdigest() != f["rgba_sha256"]:
-                raise ValueError(f"Atlas corrompu : {manifest['bank']}/{f['id']}")
+                raise ValueError(f"Corrupt atlas: {manifest['bank']}/{f['id']}")
             index_image = indices[f["page"]].crop((x,y,x+w,y+h))
             if hashlib.sha256(index_image.tobytes()).hexdigest() != f["indices_sha256"]:
-                raise ValueError(f"Indices corrompus : {manifest['bank']}/{f['id']}")
+                raise ValueError(f"Corrupt indices: {manifest['bank']}/{f['id']}")
             if hashlib.sha256(image.getchannel('A').tobytes()).hexdigest() != f["mask_sha256"]:
-                raise ValueError(f"Masque corrompu : {manifest['bank']}/{f['id']}")
+                raise ValueError(f"Corrupt mask: {manifest['bank']}/{f['id']}")
             report["atlas_frames"] += 1
         for page in pages + indices:
             page.close()

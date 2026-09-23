@@ -18,14 +18,14 @@ def main():
     profile = args.profile.resolve()
     analysis = profile / "ANALYSIS"
     if not (profile / "game/RISE2.EXR").is_file():
-        parser.error("Ce profil ne contient pas RISE2.EXR.")
+        parser.error("This profile does not contain RISE2.EXR.")
     if (analysis / "exr_proj").exists():
-        parser.error("Un projet Ghidra existe déjà ici ; utilise ghidra_session.py pour le rouvrir.")
+        parser.error("A Ghidra project already exists here; use ghidra_session.py to reopen it.")
     env = {**os.environ, "RISE2_SOURCE": str(profile / "game"), "RISE2_ANALYSIS": str(analysis)}
     subprocess.run([sys.executable, str(ROOT / "TOOLS/le2flat.py")], env=env, check=True)
     metadata = json.loads((analysis / "RISE2_le_metadata.json").read_text())
     if metadata["skipped_fixups"] or metadata["invalid_segments"]:
-        parser.error("Fixups LE non résolus ; consulter le rapport avant d'importer dans Ghidra.")
+        parser.error("Unresolved LE fixups; inspect the report before importing into Ghidra.")
     if args.ghidra:
         if not args.ghidra.is_dir():
             parser.error("Installation Ghidra introuvable.")
@@ -33,7 +33,7 @@ def main():
         if args.java_home:
             env["JAVA_HOME"] = str(args.java_home.resolve())
         subprocess.run([sys.executable, str(ROOT / "TOOLS/import_exr_ghidra.py")], env=env, check=True)
-    print(f"Analyse locale préparée : {analysis}")
+    print(f"Local analysis prepared: {analysis}")
 
 
 if __name__ == "__main__":

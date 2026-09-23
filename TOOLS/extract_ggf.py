@@ -2,7 +2,7 @@
 
 Usage: python TOOLS/extract_ggf.py [--source DIRECTORY] [--output DIRECTORY]
 The image width includes the scenery outside the 320/640-pixel viewport.
-Evidence: FUN_3c731 and FUN_3c9d0; documentation/07_decodage_images.md.
+Evidence: FUN_3c731 and FUN_3c9d0; documentation/07_image_decoding.md.
 """
 
 import argparse
@@ -22,13 +22,13 @@ GEOMETRIES = {80000: (400, 200), 256000: (640, 400), 320000: (800, 400)}
 
 def expand_6bit(value):
     if not 0 <= value <= 63:
-        raise ValueError(f"Composante VGA 6 bits invalide : {value}")
+        raise ValueError(f"Invalid 6-bit VGA component: {value}")
     return (value << 2) | (value >> 4)
 
 
 def parse_palette(raw):
     if not raw or len(raw) % 3 or len(raw) > 768:
-        raise ValueError(f"Taille de palette invalide : {len(raw)}")
+        raise ValueError(f"Invalid palette size: {len(raw)}")
     return bytes(expand_6bit(v) for v in raw)
 
 
@@ -44,23 +44,23 @@ class GGF:
 def read_ggf(path):
     data = Path(path).read_bytes()
     if not data:
-        raise ValueError("Fichier GGF vide")
+        raise ValueError("Empty GGF file")
     # FUN_3c9d0 reads a palette only if the flag is nonzero.
     offset = 769 if data[0] else 1
     if len(data) < offset:
-        raise ValueError(f"Palette tronquée : {len(data)-1}/768 octets")
+        raise ValueError(f"Truncated palette : {len(data)-1}/768 bytes")
     palette = parse_palette(data[1:offset]) if data[0] else None
     decoder = LZW(data, offset)
     try:
         pixels = decoder.decode(max_out=320000)
     except EOFError as exc:
-        raise ValueError("Flux LZW tronqué avant EOI") from exc
+        raise ValueError("LZW stream truncated before EOI") from exc
     if len(pixels) not in GEOMETRIES:
-        raise ValueError(f"Géométrie GGF inconnue : {len(pixels)} pixels")
+        raise ValueError(f"Unknown GGF geometry : {len(pixels)} pixels")
     # All original files have one zero padding byte after the EOI byte.
     trailing = data[(decoder.bits.pos + 7) // 8:]
     if trailing not in (b"", b"\x00"):
-        raise ValueError("Données inattendues après EOI")
+        raise ValueError("Unexpected data after EOI")
     return GGF(data[0], palette, pixels, GEOMETRIES[len(pixels)], decoder.bits.pos)
 
 
@@ -84,7 +84,7 @@ def main():
         try:
             decoded = read_ggf(path)
             if decoded.palette is None:
-                raise ValueError("Palette héritée du jeu nécessaire pour le rendu couleur")
+                raise ValueError("Inherited game palette required for color rendering")
             image = Image.frombytes("P", decoded.size, decoded.pixels)
             image.putpalette(decoded.palette)
             image.save(args.output / f"{path.stem}.png")
@@ -111,7 +111,7 @@ def main():
             sheet.paste(thumb, (x, y))
             draw.text((x+6, y+104), name, fill="white")
         sheet.save(args.output / "contact_sheet.jpg", quality=90)
-    print(f"GGF : {len(thumbs)} images extraites, {report['rejected']} sources invalides (manifest.json)")
+    print(f"GGF: {len(thumbs)} images extracted, {report['rejected']} invalid sources (manifest.json)")
 
 
 if __name__ == "__main__":

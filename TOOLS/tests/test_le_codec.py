@@ -53,21 +53,21 @@ class LELoader(unittest.TestCase):
         data = executable()
         end = struct.unpack_from("<I", data, 0x80 + 0xf0 + 12)[0]
         struct.pack_into("<I", data, 0x80 + 0xf0 + 12, end - 1)
-        with self.assertRaisesRegex(ValueError, "Record de fixup"):
+        with self.assertRaisesRegex(ValueError, "Truncated LE fixup record"):
             flatten(data)
 
     def test_conflicting_cross_page_duplicate_rejected(self):
         data = executable()
         struct.pack_into("<I", data, 0x80 + 0x110 + 16 + 5, 6)
-        with self.assertRaisesRegex(ValueError, "contradictoires"):
+        with self.assertRaisesRegex(ValueError, "Conflicting fixups"):
             flatten(data)
 
     def test_truncated_data_and_unknown_fixup_rejected(self):
-        with self.assertRaisesRegex(ValueError, "tronqué"):
+        with self.assertRaisesRegex(ValueError, "Truncated"):
             flatten(executable()[:-1])
         data = executable()
         data[0x80 + 0x110] = 6
-        with self.assertRaisesRegex(ValueError, "non pris en charge"):
+        with self.assertRaisesRegex(ValueError, "Unsupported"):
             flatten(data)
 
 

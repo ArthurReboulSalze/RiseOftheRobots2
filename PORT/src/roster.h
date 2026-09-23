@@ -3,8 +3,8 @@
 #include <array>
 
 struct RobotInfo {
-    char slot;             // suffixe de RBT?/R? et champ robot_slot de VSFACE
-    const char* name;      // ordre de RISE.FRA, premiere section
+    char slot;             // RBT?/R? suffix and VSFACE robot_slot field
+    const char* name;      // RISE.FRA order, first section
 };
 
 constexpr std::array<RobotInfo, 30> kRoster{{

@@ -1,8 +1,8 @@
-# Extraction audio des banques MRW (format validé par Astra/FUN_3a792 + couverture empirique) :
-#   [u16 count][count x (u32 offset, u32 taille)][PCM 8 bits non signé, mono, 11025 Hz de base]
-# Les échantillons partagés (même offset+taille) sont dédoublonnés ; le facteur de pitch
-# (freq = (pitch_16_16 * 11025) >> 16) est porté par les séquences MRS (à intégrer ensuite).
-# Sorties : EXTRACTED/audio/mrw/<banque>/<banque>_<i>.wav + EXTRACTED/data/mrw_audio.json
+# Extract audio from MRW banks (verified through FUN_3a792 and empirical span coverage):
+#   [u16 count][count x (u32 offset, u32 size)][unsigned 8-bit mono PCM, 11025 Hz base]
+# Shared samples (same offset and size) are deduplicated; the pitch factor
+# (rate = (pitch_16_16 * 11025) >> 16) comes from MRS sequences (future integration).
+# Outputs: EXTRACTED/audio/mrw/<bank>/<bank>_<i>.wav and EXTRACTED/data/mrw_audio.json.
 import argparse
 import struct, os, json, wave
 from pathlib import Path
@@ -27,17 +27,17 @@ def main():
             continue
         d = open(os.path.join(SRC, f), 'rb').read()
         if len(d) < 2:
-            raise ValueError(f"Banque MRW tronquée : {f}")
+            raise ValueError(f"Truncated MRW bank : {f}")
         cnt = struct.unpack_from('<H', d, 0)[0]
         if 2 + cnt * 8 > len(d):
-            raise ValueError(f"Répertoire MRW tronqué : {f}")
+            raise ValueError(f"Truncated MRW directory : {f}")
         bank = os.path.join(OUT, f[:-4])
         os.makedirs(bank, exist_ok=True)
         entries = []
         for i in range(cnt):
             off, size = struct.unpack_from('<II', d, 2 + i*8)
             if off < 2 + cnt * 8 or off + size > len(d):
-                raise ValueError(f"Échantillon {i} hors bornes dans {f}")
+                raise ValueError(f"Sample {i} out of bounds in {f}")
             pcm = d[off:off+size]
             shared = any(e['offset'] == off and e['size'] == size for e in entries)
             name = f"{f[:-4]}_{i:02d}.wav"
@@ -51,10 +51,10 @@ def main():
                                 seconds=round(size/RATE, 3), shared=shared))
             total += 1
         json.dump(dict(bank=f, count=cnt, entries=entries), open(os.path.join(bank, "manifest.json"), 'w'), indent=1)
-        print(f"{f}: {cnt} échantillons")
-    json.dump(dict(rate=RATE, format="PCM 8 bits non signé mono", total=total),
+        print(f"{f}: {cnt} samples")
+    json.dump(dict(rate=RATE, format="unsigned 8-bit mono PCM", total=total),
               open(os.path.join(OUT, "resume.json"), 'w'), indent=1)
-    print(f"total: {total} échantillons -> EXTRACTED/audio/mrw/")
+    print(f"total: {total} samples -> EXTRACTED/audio/mrw/")
 
 if __name__ == "__main__":
     main()

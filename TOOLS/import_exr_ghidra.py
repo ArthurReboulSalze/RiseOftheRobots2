@@ -1,6 +1,6 @@
-# Import de l'image plate RISE2 (LE aplatie, base déclarée 0x10000) dans Ghidra.
-# Le fichier est préfixé de 64 Ko de zéros => offset fichier = adresse linéaire.
-# Projet : ANALYSIS/exr_proj (projet privé, GUI fermée).
+# Import the flattened RISE2 LE image into Ghidra at base 0x10000.
+# A 64 KiB zero prefix makes file offsets equal linear addresses.
+# Project: ANALYSIS/exr_proj (private project, GUI closed).
 import os, struct, json
 
 from project_paths import ROOT as PROJECT_ROOT, SOURCE, ANALYSIS
@@ -12,7 +12,7 @@ PROJ = os.path.join(ROOT, r"ANALYSIS")
 metadata = json.loads((ANALYSIS / "RISE2_le_metadata.json").read_text(encoding="utf-8"))
 ENTRY = metadata["entry"]
 if metadata["base"] != 0x10000:
-    raise ValueError("Base LE non prise en charge par ce projet Ghidra")
+    raise ValueError("LE base is unsupported by this Ghidra project")
 
 img = open(FLAT, 'rb').read()
 pad = b'\x00' * 0x10000
@@ -35,18 +35,18 @@ with pyghidra.open_program(
     program = flat.getCurrentProgram()
     af = program.getAddressFactory().getDefaultAddressSpace()
     entry = af.getAddress(ENTRY)
-    # point d'entrée : désassembler + créer la fonction
+    # Disassemble the entry point and create its function.
     flat.disassemble(entry)
     f = flat.createFunction(entry, "entry")
     print("entry function:", f)
 
-    # décompiler l'entrée pour vérifier que le code est cohérent
+    # Decompile the entry point to check that the code is coherent.
     di = DecompInterface()
     di.openProgram(program)
     fm = program.getFunctionManager()
     res = di.decompileFunction(f, 120, ConsoleTaskMonitor())
     out = res.getDecompiledFunction().getC() if res.decompileCompleted() else "// FAILED: " + res.getErrorMessage()
     open(os.path.join(ANALYSIS, "exr_entry.c"), "w").write(out)
-    print("=== entry (extrait) ===")
+    print("=== entry excerpt ===")
     print(out[:1500])
-    print("fonctions trouvées:", fm.getFunctionCount() if (fm := program.getFunctionManager()) else "?")
+    print("Functions found:", fm.getFunctionCount() if (fm := program.getFunctionManager()) else "?")

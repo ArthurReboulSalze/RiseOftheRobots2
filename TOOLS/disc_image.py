@@ -14,23 +14,23 @@ def safe_path(root, name):
     parts = name.replace("\\", "/").split("/")
     if not parts or any(not p or p in (".", "..") or ":" in p or "\0" in p
                         or p.endswith((" ", ".")) for p in parts):
-        raise ValueError(f"Chemin non sûr dans la source : {name!r}")
+        raise ValueError(f"Unsafe path in source: {name!r}")
     for p in parts:
         if p.split('.')[0].upper() in {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}:
-            raise ValueError(f"Nom réservé : {name!r}")
+            raise ValueError(f"Reserved name: {name!r}")
     target = Path(root).joinpath(*parts)
     if not target.resolve().is_relative_to(Path(root).resolve()):
-        raise ValueError(f"Chemin hors du dossier source : {name!r}")
+        raise ValueError(f"Path outside source directory: {name!r}")
     return target
 
 
 def sectors(msf):
     match = re.fullmatch(r"(\d+):(\d{2}):(\d{2})", msf)
     if not match:
-        raise ValueError(f"Position CUE incorrecte : {msf}")
+        raise ValueError(f"Invalid CUE position: {msf}")
     m, s, f = map(int, match.groups())
     if s >= 60 or f >= 75:
-        raise ValueError(f"Position CUE incorrecte : {msf}")
+        raise ValueError(f"Invalid CUE position: {msf}")
     return (m * 60 + s) * 75 + f
 
 
@@ -57,26 +57,26 @@ def read_cue(path):
         if word == "FILE":
             match = re.fullmatch(r'FILE\s+(?:"([^"]+)"|(\S+))\s+BINARY', line, re.I)
             if not match:
-                raise ValueError("CUE : seuls les fichiers FILE ... BINARY sont pris en charge.")
+                raise ValueError("CUE: only FILE ... BINARY entries are supported.")
             current_file = safe_path(path.parent, match[1] or match[2])
             if not current_file.is_file() or current_file.is_symlink():
-                raise ValueError(f"Fichier BIN manquant ou lien symbolique : {current_file.name}")
+                raise ValueError(f"BIN file missing or symbolic link: {current_file.name}")
         elif word == "TRACK":
             match = re.fullmatch(r"TRACK\s+(\d+)\s+(AUDIO|MODE1/2352|MODE1/2048|MODE2/2352)", line, re.I)
             if not match or current_file is None:
-                raise ValueError(f"Piste CUE non prise en charge : {line}")
+                raise ValueError(f"Unsupported CUE track: {line}")
             number, mode = int(match[1]), match[2].upper()
             if not 1 <= number <= 99 or (tracks and number <= tracks[-1].number):
-                raise ValueError("Numéros de pistes CUE non croissants ou hors plage.")
+                raise ValueError("CUE track numbers are not increasing or are out of range.")
             tracks.append(Track(number, mode, current_file, sector_size=2048 if mode == "MODE1/2048" else 2352))
         elif word == "INDEX":
             fields = line.split()
             if len(fields) != 3 or not tracks:
-                raise ValueError(f"Index CUE incorrect : {line}")
+                raise ValueError(f"Invalid CUE index: {line}")
             index, value = int(fields[1]), sectors(fields[2])
             if index == 1:
                 if tracks[-1].start >= 0:
-                    raise ValueError("INDEX 01 dupliqué.")
+                    raise ValueError("Duplicate INDEX 01.")
                 tracks[-1].start = value
             elif index == 0:
                 tracks[-1].index0 = value
@@ -84,23 +84,23 @@ def read_cue(path):
             # Synthetic gaps are not present in the BIN and do not move its offsets.
             sectors(line.split()[1])
         elif word not in ("REM", "TITLE", "PERFORMER", "SONGWRITER", "CATALOG", "ISRC", "FLAGS", "CDTEXTFILE"):
-            raise ValueError(f"Instruction CUE inconnue : {word}")
+            raise ValueError(f"Unknown CUE instruction: {word}")
     if not tracks:
-        raise ValueError("CUE sans piste.")
+        raise ValueError("CUE has no tracks.")
     for i, track in enumerate(tracks):
         siblings = [t for t in tracks if t.file == track.file]
         if len({t.sector_size for t in siblings}) != 1:
-            raise ValueError("Tailles de secteurs mixtes dans un même BIN non prises en charge.")
+            raise ValueError("Mixed sector sizes in one BIN are unsupported.")
         size = track.file.stat().st_size
         if size % track.sector_size:
-            raise ValueError(f"BIN tronqué : {track.file.name}")
+            raise ValueError(f"Truncated BIN: {track.file.name}")
         next_track = tracks[i + 1] if i + 1 < len(tracks) else None
         track.end = ((next_track.index0 if next_track.index0 is not None else next_track.start)
                      if next_track and next_track.file == track.file else size // track.sector_size)
         if not 0 <= track.start < track.end <= size // track.sector_size:
-            raise ValueError(f"Bornes incorrectes pour la piste {track.number:02}.")
+            raise ValueError(f"Invalid bounds for track {track.number:02}.")
         if track.index0 is not None and not 0 <= track.index0 <= track.start:
-            raise ValueError("INDEX 00 doit précéder INDEX 01.")
+            raise ValueError("INDEX 00 must precede INDEX 01.")
     return tracks
 
 
@@ -120,7 +120,7 @@ class SectorReader(io.RawIOBase):
     def seek(self, offset, whence=0):
         value = offset + (0 if whence == 0 else self.position if whence == 1 else self.length)
         if value < 0 or whence not in (0, 1, 2):
-            raise ValueError("Position de lecture invalide.")
+            raise ValueError("Invalid read position.")
         self.position = value
         return value
 
@@ -133,11 +133,11 @@ class SectorReader(io.RawIOBase):
             self.fp.seek((self.track.start + sector) * self.track.sector_size)
             raw = self.fp.read(self.track.sector_size)
             if len(raw) != self.track.sector_size:
-                raise ValueError("Secteur tronqué.")
+                raise ValueError("Truncated sector.")
             if self.header and (raw[:12] != b"\x00" + b"\xff" * 10 + b"\x00" or raw[15] != (2 if self.header == 24 else 1)):
-                raise ValueError("Secteur de données invalide (synchronisation/mode).")
+                raise ValueError("Invalid data sector (sync/mode).")
             if self.header == 24 and raw[18] & 0x20:
-                raise ValueError("Secteur MODE2 Form 2 non pris en charge pour ISO9660.")
+                raise ValueError("MODE2 Form 2 sector is unsupported for ISO9660.")
             buffer[copied:copied + take] = raw[self.header + inside:self.header + inside + take]
             copied += take
             self.position += take
@@ -164,18 +164,18 @@ def extract_iso(stream, destination):
                 relative = "/".join(p.split(";")[0].rstrip(".") for p in iso_name.lstrip("/").split("/")).upper()
                 target = safe_path(destination, relative)
                 if relative.casefold() in seen:
-                    raise ValueError(f"Deux noms ISO convergent vers {relative}.")
+                    raise ValueError(f"Two ISO names map to {relative}.")
                 seen.add(relative.casefold())
                 record = iso.get_record(iso_path=iso_name)
                 total += record.data_length
                 count += 1
                 if total > MAX_BYTES or count > MAX_FILES:
-                    raise ValueError("Image trop volumineuse pour cet importeur (8 Gio / 50 000 fichiers).")
+                    raise ValueError("Disc image exceeds importer limits (8 GiB / 50,000 files).")
                 target.parent.mkdir(parents=True, exist_ok=True)
                 with target.open("xb") as out:
                     iso.get_file_from_iso_fp(out, iso_path=iso_name)
                 if target.stat().st_size != record.data_length:
-                    raise ValueError(f"Extraction incomplète : {relative}")
+                    raise ValueError(f"Incomplete extraction: {relative}")
         return {"volume": volume, "files": count, "bytes": total}
     finally:
         iso.close()
@@ -191,7 +191,7 @@ def rip_track(track, target):
         while remaining:
             chunk = src.read(min(1024 * SECTOR_AUDIO, remaining))
             if not chunk:
-                raise ValueError(f"Piste {track.number:02} tronquée.")
+                raise ValueError(f"Track {track.number:02} truncated.")
             out.writeframesraw(chunk)
             remaining -= len(chunk)
     return {"number": track.number, "file": target.name,
@@ -202,7 +202,7 @@ def extract_cue(path, destination, log=print):
     tracks = read_cue(path)
     records = []
     for track in tracks:
-        log(f"  Piste {track.number:02} : {track.mode}")
+        log(f"  Track {track.number:02}: {track.mode}")
         if track.mode == "AUDIO":
             record = rip_track(track, Path(destination) / "music" / f"{track.number:02}.wav")
         else:

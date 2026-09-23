@@ -11,27 +11,27 @@ import wave
 
 def parse_toc(raw):
     if len(raw) < 4:
-        raise ValueError("TOC CD tronquée.")
+        raise ValueError("Truncated CD TOC.")
     size = int.from_bytes(raw[:2], "big") + 2
     first, last = raw[2:4]
     count = last - first + 1
     if not 1 <= first <= last <= 99 or size < 4 + (count + 1) * 8 or len(raw) < size:
-        raise ValueError("TOC CD incohérente ou sans lead-out.")
+        raise ValueError("Inconsistent CD TOC or missing lead-out.")
     entries = []
     for i in range(count + 1):
         entry = raw[4 + i * 8:12 + i * 8]
         m, s, frame = entry[5:8]
         if s >= 60 or frame >= 75:
-            raise ValueError("Adresse MSF incorrecte dans la TOC.")
+            raise ValueError("Invalid MSF address in the TOC.")
         entries.append({"number": entry[2], "data": bool(entry[1] & 4),
                         "start": (m * 60 + s) * 75 + frame - 150})
     if entries[-1]["number"] != 0xAA:
-        raise ValueError("Lead-out absent de la TOC.")
+        raise ValueError("TOC is missing lead-out.")
     tracks = []
     for i, entry in enumerate(entries[:-1]):
         end = entries[i + 1]["start"]
         if entry["number"] != first + i or not 0 <= entry["start"] < end:
-            raise ValueError("Ordre des pistes CD incorrect.")
+            raise ValueError("CD tracks are out of order.")
         tracks.append({**entry, "end": end})
     return tracks
 
@@ -44,7 +44,7 @@ def write_audio_tracks(tracks, read_sectors, destination, log=print):
         if track["data"]:
             continue
         number = track["number"]
-        log(f"  Extraction CD physique : piste {number:02}")
+        log(f"  Extracting physical CD track {number:02}")
         target = destination / f"{number:02}.wav"
         with wave.open(str(target), "wb") as out:
             out.setparams((2, 2, 44100, 0, "NONE", "not compressed"))
@@ -55,7 +55,7 @@ def write_audio_tracks(tracks, read_sectors, destination, log=print):
                     try:
                         block = read_sectors(sector, count)
                         if len(block) != count * 2352:
-                            raise OSError("Lecture CD audio incomplète.")
+                            raise OSError("Incomplete CD audio read.")
                         break
                     except OSError:
                         if attempt == 2:
@@ -68,7 +68,7 @@ def write_audio_tracks(tracks, read_sectors, destination, log=print):
 
 def rip_windows_cd(drive, destination, log=print):
     if os.name != "nt":
-        raise ValueError("Extraction directe CDDA disponible sous Windows ; ailleurs, fournis un BIN/CUE ou un rip audio séparé.")
+        raise ValueError("Direct CDDA extraction is available on Windows; elsewhere, provide a BIN/CUE or separate audio rip.")
     import ctypes
     from ctypes import wintypes
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)

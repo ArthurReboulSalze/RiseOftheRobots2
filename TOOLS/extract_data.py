@@ -1,4 +1,4 @@
-# Parsers des formats de données Phase 1 (structures validées, sémantique complète à affiner en Phase 2).
+# Phase 1 data-format parsers (structures verified; full semantics refined in Phase 2).
 # Sorties : EXTRACTED/data/*.json
 import struct, os, json
 
@@ -39,7 +39,7 @@ def parse_mrw(path):
         chunks.append(dict(offset=a, size=b))
     return dict(file=os.path.basename(path), count=cnt, chunks=chunks,
                 filesize=len(d),
-                note="paires (offset, taille) ; enchainement verifie sur BGA (130+963=1093, +1894=2987, +41344=fin)")
+                note="(offset, size) pairs; BGA spans verified (130+963=1093, +1894=2987, +41344=end)")
 
 
 def parse_mvs(path):
@@ -48,9 +48,9 @@ def parse_mvs(path):
     if magic[:3] != b'MVS':
         return None
     v1, v2 = struct.unpack_from('<II', d, 4)
-    # table d'entrees de 32 octets a partir de l'offset dword[2] jusqu'au 0xFFFFFFFF
+    # 32-byte entries starting at dword[2] offset, ending at 0xFFFFFFFF.
     n_dir = (0x190 - 12)//4 if False else None
-    # lecture generique : dwords depuis 12 jusqu'au premier 0xFFFFFFFF
+    # Generic read: dwords from offset 12 through the first 0xFFFFFFFF.
     offs = []
     p = 12
     while p + 4 <= len(d):

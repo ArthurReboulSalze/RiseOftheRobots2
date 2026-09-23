@@ -35,7 +35,7 @@ def files_under(root):
         for name in dirs + files:
             p = Path(parent) / name
             if p.is_symlink() or p.is_junction():
-                raise ValueError(f"Lien symbolique/jonction refusé dans la source : {p}")
+                raise ValueError(f"Symbolic link or junction rejected in source : {p}")
         dirs.sort()
         for name in sorted(files):
             yield Path(parent) / name
@@ -48,18 +48,18 @@ def unzip(source, destination):
     with zipfile.ZipFile(source) as archive:
         entries = archive.infolist()
         if len(entries) > MAX_FILES:
-            raise ValueError("ZIP : trop de fichiers.")
+            raise ValueError("ZIP: too many files.")
         for entry in entries:
             name = entry.filename.rstrip("/")
             target = safe_path(destination, name)
             if name.casefold() in seen:
-                raise ValueError(f"ZIP : nom dupliqué : {name}")
+                raise ValueError(f"ZIP: duplicate name : {name}")
             seen.add(name.casefold())
             if stat.S_ISLNK(entry.external_attr >> 16) or entry.flag_bits & 1:
-                raise ValueError("ZIP : liens symboliques et archives chiffrées non acceptés.")
+                raise ValueError("ZIP: symbolic links and encrypted archives are not accepted.")
             total += entry.file_size
             if total > MAX_BYTES:
-                raise ValueError("ZIP décompressé supérieur à 8 Gio.")
+                raise ValueError("Uncompressed ZIP exceeds 8 GiB.")
         for entry in entries:
             target = safe_path(destination, entry.filename.rstrip("/"))
             if entry.is_dir():
@@ -88,7 +88,7 @@ def optical_drive(path):
 def import_source(source, dest, log):
     source = Path(source).resolve()
     if not source.exists():
-        raise ValueError(f"Source introuvable : {source}")
+        raise ValueError(f"Source not found : {source}")
     dest.mkdir(parents=True, exist_ok=True)
     record = {"name": source.name or str(source), "kind": "folder"}
     if source.is_file():
@@ -96,7 +96,7 @@ def import_source(source, dest, log):
         if suffix == ".bin":
             cues = [p for p in source.parent.iterdir() if p.suffix.lower() == ".cue" and p.stem.casefold() == source.stem.casefold()]
             if len(cues) != 1:
-                raise ValueError("Un BIN doit être accompagné de son CUE (limites et numéros des pistes).")
+                raise ValueError("A BIN must have its CUE file to identify track bounds and numbers.")
             source, suffix = cues[0], ".cue"
         record.update(kind=suffix[1:], name=source.name, sha256=digest(source))
         if suffix == ".cue":
@@ -105,10 +105,10 @@ def import_source(source, dest, log):
         if suffix == ".iso":
             with source.open("rb") as stream:
                 record["iso"] = extract_iso(stream, dest / "data")
-            record["notice"] = "ISO de données : aucune piste CD audio incluse."
+            record["notice"] = "Data-only ISO: no CD audio tracks included."
             return game_roots(dest / "data"), [], record
         if suffix != ".zip":
-            raise ValueError("Formats acceptés : dossier, ZIP, ISO, CUE accompagné de BIN.")
+            raise ValueError("Accepted sources: folder, ZIP, ISO, or CUE with BIN.")
         source = unzip(source, dest / "archive")
     roots = game_roots(source)
     if roots:
@@ -125,7 +125,7 @@ def import_source(source, dest, log):
                     raise
                 record["tracks"] = []
                 record["audio_error"] = str(exc)
-                log(f"  Pistes CD illisibles sur ce lecteur : {exc}")
+                log(f"  CD tracks unreadable on this drive : {exc}")
             if record["tracks"]:
                 music.append(dest / "music")
         return roots, music, record
@@ -134,7 +134,7 @@ def import_source(source, dest, log):
         # A supplemental disc may contain only movies/bonus material.
         if record["kind"] != "folder":
             return [], [], record
-        raise ValueError("Aucun dossier de jeu complet ni image ISO/CUE trouvé. Le petit dossier d'installation seul ne suffit pas.")
+        raise ValueError("No complete game folder or ISO/CUE image found. The small installation folder alone is not enough.")
     roots, music, children = [], [], []
     for i, path in enumerate(images, 1):
         child_roots, child_music, child = import_source(path, dest / f"disc_{i:02}", log)
@@ -161,9 +161,9 @@ def copy_game(roots, output):
         if not any(signature == previous for _, previous in unique):
             unique.append((root, signature))
     if not unique:
-        raise ValueError("Aucune banque RBT0 trouvée dans les sources. Il faut aussi le disque de jeu, pas seulement le disque bonus.")
+        raise ValueError("No RBT0 bank found in the sources. The game disc is required; the bonus disc alone is insufficient.")
     if len(unique) != 1:
-        raise ValueError("Plusieurs versions différentes du jeu détectées : importe chaque édition dans un profil séparé.")
+        raise ValueError("Different game editions detected. Import each edition into a separate profile.")
     source = unique[0][0]
     output.mkdir()
     records = []
@@ -171,10 +171,10 @@ def copy_game(roots, output):
         if not path.is_file():
             continue
         if path.is_symlink():
-            raise ValueError(f"Lien symbolique refusé : {path.name}")
+            raise ValueError(f"Symbolic link rejected : {path.name}")
         dest = safe_path(output, path.name.upper())
         if dest.exists():
-            raise ValueError(f"Collision de noms : {path.name}")
+            raise ValueError(f"Filename collision : {path.name}")
         shutil.copyfile(path, dest)
         records.append({"name": dest.name, "size": dest.stat().st_size, "sha256": digest(dest)})
     return source, records
@@ -183,7 +183,7 @@ def copy_game(roots, output):
 def track_number(path):
     match = re.fullmatch(r"(?:(?:piste|track|audio)[ _-]*)?(\d{1,2})(?:[ ._-].*)?", path.stem, re.I)
     if not match or not 2 <= int(match[1]) <= 99:
-        raise ValueError(f"Numéro de piste ambigu : {path.name}. Utilise 02, 03, ... (piste 01 = données).")
+        raise ValueError(f"Ambiguous track number : {path.name}. Use 02, 03, ... (track 01 contains data).")
     return int(match[1])
 
 
@@ -197,13 +197,13 @@ def audio_info(path):
              (ext == ".ogg" and header[:4] == b"OggS") or
              (ext == ".m4a" and header[4:8] == b"ftyp"))
     if not valid:
-        raise ValueError(f"En-tête audio invalide : {path.name}")
+        raise ValueError(f"Invalid audio header : {path.name}")
     if ext == ".wav":
         with wave.open(str(path)) as f:
             if f.getnframes() == 0:
-                raise ValueError(f"Piste vide : {path.name}")
+                raise ValueError(f"Empty track : {path.name}")
             return {"seconds": f.getnframes() / f.getframerate(), "rate": f.getframerate(), "channels": f.getnchannels()}
-    return {"validation": "signature; fichier conservé sans réencodage"}
+    return {"validation": "signature validated; file retained without re-encoding"}
 
 
 def import_music(sources, destination):
@@ -214,7 +214,7 @@ def import_music(sources, destination):
                 continue
             number = track_number(path)
             if number in candidates:
-                raise ValueError(f"Deux fichiers portent le numéro de piste {number:02}.")
+                raise ValueError(f"Two files use track number {number:02}.")
             candidates[number] = path
     destination.mkdir(parents=True, exist_ok=True)
     records = []
@@ -233,10 +233,10 @@ def choose_music(mode, names, tracks):
     available = {"cd": bool(tracks), "digital": digital, "effects": effects, "off": True}
     selected = next((v for v in ("cd", "digital", "effects", "off") if available[v])) if mode == "auto" else mode
     if not available[selected]:
-        raise ValueError(f"Mode audio {selected} demandé mais ses données sont absentes.")
+        raise ValueError(f"Requested audio mode {selected} has no available data.")
     return {"requested": mode, "selected": selected, "available": available,
             "digital_banks": [f"MG{x}" for x in "ABCDEF" if f"MG{x}.MRS" in names and f"MG{x}.MRW" in names],
-            "runtime_playback": "not_implemented", "note": "Configuration d'import. Le séquenceur MRS et la lecture musicale du port restent à intégrer."}
+            "runtime_playback": "not_implemented", "note": "Import configuration. MRS sequencing and music playback are not yet implemented in the port."}
 
 
 def convert(game, extracted, log=print):
@@ -251,35 +251,35 @@ def convert(game, extracted, log=print):
         ("build_image_gallery.py", "--extracted", extracted),
     ]
     for job in jobs:
-        log(f"Conversion : {job[0]}")
+        log(f"Converting: {job[0]}")
         subprocess.run([sys.executable, "-u", str(ROOT / "TOOLS" / job[0]), *map(str, job[1:])], check=True)
     # Validate the contracts actually consumed by the C++ runtime.
     for slot in SLOTS + "23":
         if not (extracted / f"sprites/RBT{slot}/manifest.json").exists():
             if slot in SLOTS:
-                raise ValueError(f"Atlas obligatoire absent : RBT{slot}")
+                raise ValueError(f"Required atlas missing : RBT{slot}")
             continue
         atlas = json.loads((extracted / f"sprites/RBT{slot}/manifest.json").read_text())
         mvs = json.loads((extracted / f"data/mvs/RBT{slot}.json").read_text())
         cl2 = json.loads((extracted / f"data/cl2/R{slot}.json").read_text())
         if atlas["frame_count"] != cl2["count"] + 1 or len(mvs["moves"]) != 96:
-            raise ValueError(f"Contrat atlas/MVS/CL2 incompatible pour le robot {slot}.")
+            raise ValueError(f"Incompatible atlas/MVS/CL2 data for robot {slot}.")
         for move in mvs["moves"]:
             for sequence in move["sequences"]:
                 if not sequence or not sequence[-1].get("end") or any(e.get("truncated") for e in sequence):
-                    raise ValueError(f"Séquence MVS tronquée : RBT{slot}")
+                    raise ValueError(f"Truncated MVS sequence : RBT{slot}")
                 if any(not 0 <= e["image"] < cl2["count"] for e in sequence if "image" in e):
-                    raise ValueError(f"Index image MVS hors limites : RBT{slot}")
+                    raise ValueError(f"MVS image index out of range : RBT{slot}")
 
 
 def run_import(sources, output, music=(), music_mode="auto", convert_assets=True, log=print):
     output = Path(output).resolve()
     if output.exists():
-        raise ValueError(f"Le profil existe déjà : {output}. Choisis un nouveau nom ; aucun import existant n'est écrasé.")
+        raise ValueError(f"Profile already exists : {output}. Choose a new name; existing imports are never overwritten.")
     for source in sources:
         p = Path(source).resolve()
         if p.is_dir() and output.is_relative_to(p):
-            raise ValueError("Le profil de sortie doit être hors du dossier source.")
+            raise ValueError("The output profile must be outside the source folder.")
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".rise2-import-", dir=output.parent) as temp:
         staging = Path(temp) / "profile"
@@ -299,7 +299,7 @@ def run_import(sources, output, music=(), music_mode="auto", convert_assets=True
         names = {entry["name"] for entry in game_records}
         missing = sorted(required_files() - names)
         if missing:
-            raise ValueError(f"Données nécessaires au port manquantes ({len(missing)}) : {', '.join(missing[:12])}")
+            raise ValueError(f"Required port data missing ({len(missing)}) : {', '.join(missing[:12])}")
         selected_music = []
         if music:
             for i, path in enumerate(music):
@@ -307,33 +307,33 @@ def run_import(sources, output, music=(), music_mode="auto", convert_assets=True
                 if path.is_file() and path.suffix.lower() == ".zip":
                     path = unzip(path, staging / "sources" / f"music_{i:02}")
                 if not path.is_dir():
-                    raise ValueError(f"Dossier ou ZIP musical introuvable : {path}")
+                    raise ValueError(f"Music folder or ZIP not found : {path}")
                 selected_music.append(path)
-            log("Musique : dossier(s) fourni(s) séparément, prioritaire(s) sur les pistes des images.")
+            log("Music: separately supplied folders take priority over disc-image tracks.")
         elif music_roots:
             # Select the soundtrack from the disc containing the game, not the bonus disc.
             matching = [p for p in music_roots if game_source.is_relative_to(p.parent)]
             matching = physical_music.get(game_source, matching)
             if len(matching) > 1:
-                raise ValueError("Disque musical ambigu : fournis --music pour désigner les pistes à utiliser.")
+                raise ValueError("Ambiguous music disc: use --music to select the tracks.")
             selected_music = matching
         tracks = import_music(selected_music, staging / "music")
         if music and not tracks:
-            raise ValueError("Aucune piste audio numérotée trouvée dans --music.")
+            raise ValueError("No numbered audio tracks found in --music.")
         audio = choose_music(music_mode, names, tracks)
         warnings = []
         if any(record.get("audio_error") for record in source_records):
-            warnings.append("Le lecteur virtuel/optique ne fournit pas les pistes CD audio ; données du jeu importées.")
+            warnings.append("The virtual/optical drive did not provide CD audio tracks; game data was imported.")
         if not tracks:
-            warnings.append("Pas de piste CD audio. Les données musicales MRS/MRW restent disponibles si présentes.")
+            warnings.append("No CD audio tracks found. MRS/MRW digital music remains available when present.")
         elif {t["number"] for t in tracks} != set(range(2, 11)):
-            warnings.append("La série CD attendue 02–10 est incomplète ou différente ; numéros conservés sans décalage.")
+            warnings.append("Expected CD tracks 02–10 are incomplete or different; track numbers were preserved.")
         movies = sorted(n for n in names if n.endswith(".ANI"))
         pending_movies = [n for n in movies if n not in ("LLOGO.ANI", "END.ANI", "ENL.ANI")]
         if pending_movies:
-            warnings.append(f"{len(pending_movies)} ANI supplémentaires préservés ; leur conversion n'est pas encore automatisée.")
+            warnings.append(f"{len(pending_movies)} additional ANI files preserved; their conversion is not yet automated.")
         else:
-            warnings.append("Seulement les trois ANI connus sont présents : les cinématiques longues peuvent manquer.")
+            warnings.append("Only the three known ANI files are present; longer cinematics may be missing.")
         if convert_assets:
             convert(staging / "game", staging / "EXTRACTED", log)
         report = {"schema": 1, "sources": source_records, "game_files": game_records,
@@ -345,23 +345,23 @@ def run_import(sources, output, music=(), music_mode="auto", convert_assets=True
         write_json(staging / "settings.json", {"schema": 1, "music": audio, "assets": "EXTRACTED", "cd_audio": "music"})
         staging.rename(output)
     for warning in warnings:
-        log(f"Note : {warning}")
-    log(f"Import terminé : {output}")
+        log(f"Note: {warning}")
+    log(f"Import complete : {output}")
     return report
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", nargs="+", type=Path, required=True, help="Dossiers, ZIP, ISO ou CUE (plusieurs disques possibles)")
-    parser.add_argument("--music", nargs="+", type=Path, default=[], help="Dossiers ou ZIP de pistes 02, 03, ...")
+    parser.add_argument("--source", nargs="+", type=Path, required=True, help="Folders, ZIP, ISO, or CUE (multiple discs allowed)")
+    parser.add_argument("--music", nargs="+", type=Path, default=[], help="Folders or ZIPs containing tracks 02, 03, ...")
     parser.add_argument("--music-mode", choices=("auto", "cd", "digital", "effects", "off"), default="auto")
     parser.add_argument("--output", type=Path, default=ROOT / "LOCAL/default")
-    parser.add_argument("--import-only", action="store_true", help="Importer et contrôler les sources sans convertir les images")
+    parser.add_argument("--import-only", action="store_true", help="Import and validate sources without converting images")
     args = parser.parse_args()
     try:
         run_import(args.source, args.output, args.music, args.music_mode, not args.import_only)
     except (ValueError, OSError, zipfile.BadZipFile, subprocess.CalledProcessError) as exc:
-        parser.exit(1, f"Import interrompu : {exc}\nLe profil de destination n'a pas été publié.\n")
+        parser.exit(1, f"Import stopped : {exc}\nThe destination profile was not published.\n")
 
 
 if __name__ == "__main__":

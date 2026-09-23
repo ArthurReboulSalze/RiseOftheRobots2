@@ -1,5 +1,5 @@
-// Ossature du port Rise 2 : fenetre SDL 1280x800 (logique 640x400), simulation 15 Hz,
-// deux combattants hi-res animés (atlas RBT + mouvements MVS), transitions MVS actives.
+// Rise 2 port skeleton: SDL window 1280x800 (logical 640x400), 15 Hz simulation,
+// Two animated high-resolution fighters (RBT atlases and MVS movement transitions).
 #include "assets.h"
 #include "fighter.h"
 #include "frontend.h"
@@ -23,7 +23,7 @@ static void draw_fighter(SDL_Renderer* r, const Fighter& f, int cam_x) {
     SDL_RenderCopyEx(r, page, &src, &dst, 0, nullptr, flip);
 }
 
-// orientation : le combattant regarde l'adversaire quand les positions diffèrent (fn_25615)
+// Facing: each fighter looks toward the opponent when positions differ (fn_25615).
 static void update_facing(Fighter& a, Fighter& b) {
     if (a.x < b.x) a.facing = 1;
     else if (a.x > b.x) a.facing = -1;
@@ -37,13 +37,13 @@ static uint16_t horizontal_input(bool left, bool right, int facing) {
     return forward ? IN_B0 : IN_B5;
 }
 
-// applique les déplacements du mouvement courant (un pas par frame, x2, selon l'orientation)
+// Apply current-movement displacement (one step per frame, scaled x2 by facing).
 static void apply_movement(Fighter& f) {
     const MvsMove* mv = f.move();
     if (!mv || f.seq_pos >= (int)mv->movements[f.speed_level].size()) return;
     int s = mv->movements[f.speed_level][f.seq_pos];
     if (s != 0) {
-        // le pas pousse vers l'avant du regard (le fichier est écrit pour facing=1)
+        // A step moves along facing; the file encodes facing=1.
         f.x += s * 2 * f.facing;
         f.x = SDL_clamp(f.x, arena_min, arena_max);
     }
@@ -87,7 +87,7 @@ int main(int argc, char** argv) {
                 fighter.x = x;
                 fighter.y = ground_y;
                 fighter.facing = facing;
-                fprintf(stderr, "joueur %d: %s (%s)\n", player_index + 1,
+                fprintf(stderr, "Player %d: %s (%s)\n", player_index + 1,
                         frontend.player(player_index).name, bank.c_str());
             };
             configure(p1, 0, 220, 1);
@@ -123,7 +123,7 @@ int main(int argc, char** argv) {
                 update_facing(p1, p2);
                 const Uint8* kb = SDL_GetKeyboardState(nullptr);
 
-                // Joueur 1 : flèches + J/K
+                // Player 1: arrow keys and J/K.
                 uint16_t in1 = horizontal_input(kb[SDL_SCANCODE_LEFT], kb[SDL_SCANCODE_RIGHT], p1.facing);
                 if (kb[SDL_SCANCODE_DOWN])  in1 |= 0x04;
                 if (kb[SDL_SCANCODE_UP])    in1 |= 0x02;
@@ -136,7 +136,7 @@ int main(int argc, char** argv) {
                 if (kb[SDL_SCANCODE_I]) in2 |= 0x10;
                 if (kb[SDL_SCANCODE_O]) in2 |= 0x08;
 
-                p1.hit_move = -1; // re-arm simplifié : un coup par frame d'attaque active
+                p1.hit_move = -1; // Simplified re-arm: one hit per active attack frame.
                 p2.hit_move = -1;
                 int old_move1 = p1.move_id, old_move2 = p2.move_id;
                 int t1 = p1.step(in1);
@@ -147,7 +147,7 @@ int main(int argc, char** argv) {
                 apply_movement(p2);
                 update_facing(p1, p2);
 
-                // --- collisions / dégâts (fn_381a9 + fn_38b72 simplifiés) ---
+                // --- Collisions and damage (simplified fn_381a9 + fn_38b72) ---
                 static std::vector<Cl2Box> att1, bod1, att2, bod2;
                 att1.clear(); bod1.clear(); att2.clear(); bod2.clear();
                 p1.get_boxes(&att1, &bod1);
@@ -163,7 +163,7 @@ int main(int argc, char** argv) {
                             if (!overlap(a, b)) continue;
                             int dmg = a.damage_or_type;
                             vic.health = SDL_max(0, vic.health - dmg);
-                            vic.flash = 3; // environ 0,13 s visibles avec la simulation a 15 Hz
+                            vic.flash = 3; // About 0.13 s visible at the 15 Hz simulation rate.
                             att.super_meter = SDL_min(24, att.super_meter + 2);
                             att.hit_move = att.move_id;
                             fprintf(stderr, "HIT %s -> %s : dmg=%d (vie %s=%d)\n", na, nv, dmg, nv, vic.health);
@@ -188,7 +188,7 @@ int main(int argc, char** argv) {
                 draw_fighter(ren, p1, 0);
                 draw_fighter(ren, p2, 0);
 
-                // --- HUD : barres de vie + jauges de super ---
+                // --- HUD: health bars and super meters ---
                 {
                     int w = 240;
                     float f1 = p1.health / 120.0f, f2 = p2.health / 120.0f;
@@ -225,7 +225,7 @@ int main(int argc, char** argv) {
         fprintf(stderr, "ERREUR: %s\n", e.what());
         ret = 1;
     }
-    assets.reset(); // libere les textures avant la destruction du renderer
+    assets.reset(); // Release textures before destroying the renderer.
     SDL_DestroyRenderer(ren);
     SDL_DestroyWindow(win);
     IMG_Quit();

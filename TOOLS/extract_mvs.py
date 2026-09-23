@@ -1,11 +1,11 @@
-# Convertisseur MVS (tables de mouvements) -> JSON. Sémantique validée (Astra + moteur) :
-#   [MV S 01][u32 0x1C48][u32 0x1BFE][répertoire : 96 u32, terminé 0xFFFFFFFF]
-#   descripteur 32 o : [+0,+4,+8] 3 séquences d'anim (vitesses) ; [+C,+10,+14] 3 déplacements
-#     horizontaux (int16/pas) ; [+18] transitions (masque,cible) fin = FFFF ; [+1C] drapeaux ;
-#     [+1D] mouvement auto ; [+1E] index reprise ; [+1F] paramètre (quatre octets distincts).
-#   séquence : 2 o/entrée, image = 2*octet0 + (octet1&1), contrôle = octet1>>1 ; octet0 == 0xFF = fin.
-#   déplacement : int16 par pas (un par image de la séquence, zéro = immobile).
-# Sorties : EXTRACTED/data/mvs/<banque>.json + resume
+# MVS movement-table-to-JSON converter. Semantics verified against the engine:
+#   [MV S 01][u32 0x1C48][u32 0x1BFE][directory: 96 u32, ending at 0xFFFFFFFF]
+#   32-byte descriptor: [+0,+4,+8] three animation sequences (speeds); [+C,+10,+14] three displacements
+#     horizontal (int16/step); [+18] transitions (mask,target), ending at FFFF; [+1C] flags;
+#     [+1D] automatic movement; [+1E] resume index; [+1F] parameter (four separate bytes).
+#   sequence: 2 bytes/entry; image = 2*byte0 + (byte1&1); control = byte1>>1; byte0 == 0xFF ends it.
+#   displacement: int16 per step (one per sequence image; zero means stationary).
+# Output: EXTRACTED/data/mvs/<bank>.json plus a summary.
 import argparse
 import struct, os, json
 from pathlib import Path
@@ -36,7 +36,7 @@ def parse_transitions(d, ptr, be=False):
     out = []
     while ptr + 4 <= len(d):
         mask, target = struct.unpack_from(fmt, d, ptr)
-        if mask >= 0x8000:  # premier mot négatif = fin
+        if mask >= 0x8000:  # negative first word ends the table
             break
         out.append(dict(mask=mask, target=target))
         ptr += 4
@@ -74,7 +74,7 @@ def parse_bank(path):
     moves = []
     for i, o in enumerate(offs):
         if o + 32 > len(d):
-            return dict(error=f"descripteur {i} hors bornes")
+            return dict(error=f"descriptor {i} out of bounds")
         fmt = '>7I' if be else '<7I'
         s0, s1, s2, m0, m1, m2, tr = struct.unpack_from(fmt, d, o)
         seq0 = parse_sequence(d, s0, be)
@@ -106,8 +106,8 @@ def main():
         r = parse_bank(os.path.join(SRC, f))
         if r is None or 'error' in r:
             bad += 1
-            summary[f] = r or "magic invalide"
-            print("ERREUR", f, r)
+            summary[f] = r or "invalid magic"
+            print("ERROR", f, r)
             continue
         json.dump(r, open(os.path.join(OUT, f[:-4] + '.json'), 'w'), indent=1)
         summary[f] = dict(count=r['count'])
@@ -115,12 +115,12 @@ def main():
     json.dump(summary, open(os.path.join(OUT, 'resume.json'), 'w'), indent=1)
     print(f"MVS ok={ok} bad={bad}")
     if bad or not ok:
-        raise ValueError("Conversion MVS incomplète")
-    # exemple : les transitions du mouvement 0 de RBT0
+        raise ValueError("Incomplete MVS conversion")
+    # Example: transitions for RBT0 movement 0.
     r = json.load(open(os.path.join(OUT, 'RBT0.json'), encoding='utf-8'))
     m0 = r['moves'][0]
-    print("RBT0 mvt0: images:", [e.get('image', 'FIN') for e in m0['sequences'][0]])
-    print("  déplacements:", m0['movements'][0])
+    print("RBT0 move 0 images:", [e.get('image', 'END') for e in m0['sequences'][0]])
+    print("  displacements:", m0['movements'][0])
     print("  transitions:", m0['transitions'])
 
 if __name__ == "__main__":

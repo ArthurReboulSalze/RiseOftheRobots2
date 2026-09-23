@@ -1,4 +1,4 @@
-# Catalogueur de fichiers de données RISE2 : taille, premiers octets, entropie.
+# RISE2 data-file catalogue: size, leading bytes, and entropy.
 # Usage : python TOOLS/catalog.py [data_dir]  → ANALYSIS/catalog.csv + ANALYSIS/catalog.md
 import os, sys, math, collections
 
@@ -30,23 +30,23 @@ with open(OUT_CSV, 'w', encoding='utf-8') as fo:
     for f, size, head, ent in rows:
         fo.write(f"{f},{size},{head.replace(' ','')},{ent:.3f}\n")
 
-# résumé par extension
+# Summary by extension.
 groups = collections.defaultdict(list)
 for f, size, head, ent in rows:
     ext = os.path.splitext(f)[1].lower() or '(none)'
     groups[ext].append((f, size, head, ent))
 
 with open(OUT_MD, 'w', encoding='utf-8') as fo:
-    fo.write("# Catalogue des fichiers de données\n\nRépertoire : `%s`\n\n" % DATA)
+    fo.write("# Data-file catalogue\n\nDirectory: `%s`\n\n" % DATA)
     for ext in sorted(groups, key=lambda e: -len(groups[e])):
         items = groups[ext]
         sizes = [s for _, s, _, _ in items]
         fo.write(f"## {ext} — {len(items)} fichiers\n\n")
         fo.write(f"tailles : min={min(sizes)}, max={max(sizes)}, total={sum(sizes)}\n\n")
-        fo.write("| fichier | taille | entropie(8K) | 16 premiers octets |\n|---|---|---|---|\n")
+        fo.write("| file | size | entropy (8K) | first 16 bytes |\n|---|---|---|---|\n")
         for f, size, head, ent in items[:40]:
             fo.write(f"| {f} | {size} | {ent:.2f} | `{head}` |\n")
         if len(items) > 40:
             fo.write(f"\n_(+{len(items) - 40} autres)_\n")
         fo.write("\n")
-print("catalogue écrit :", OUT_CSV, "et", OUT_MD)
+print("Catalogue written:", OUT_CSV, "and", OUT_MD)

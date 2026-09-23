@@ -1,4 +1,4 @@
-# Dépôt de code uniquement : tout nouveau dossier racine est privé par défaut.
+# Code-only repository: any new top-level directory is private by default.
 /*
 !/.gitignore
 !/.gitattributes
@@ -9,7 +9,7 @@
 !/TOOLS/
 /TOOLS/*
 !/TOOLS/*.py
-# Ancien générateur ponctuel, qui réécrit main.cpp ; conservé uniquement en local.
+# One-off legacy generator that rewrites main.cpp; keep it local only.
 /TOOLS/wire_combat.py
 !/TOOLS/templates/
 /TOOLS/templates/*
@@ -41,7 +41,7 @@
 **/__pycache__/
 *.pyc
 
-# Toujours privés, même si une règle est assouplie plus haut.
+# Always private, even if an allowlist rule above changes.
 /SRC/
 /EXTRACTED/
 /LOCAL/

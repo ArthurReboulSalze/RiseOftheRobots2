@@ -1,5 +1,5 @@
-# Décompile les fonctions contenant des adresses données (références aux chaînes de formats).
-# Usage : python TOOLS/exr_decompile_at.py  -> ANALYSIS/fn_<addr>.c pour chaque fonction unique
+# Decompile functions containing selected addresses (format-string references).
+# Usage: python TOOLS/exr_decompile_at.py -> ANALYSIS/fn_<addr>.c for each unique function.
 from ghidra_session import open_rotr2
 import os, sys
 
@@ -29,7 +29,7 @@ for a in ADDRS:
     addr = af.getAddress(a)
     fn = fm.getFunctionContaining(addr)
     if fn is None:
-        print("aucune fonction contient", hex(a))
+        print("No function contains", hex(a))
         continue
     ep = fn.getEntryPoint().getOffset()
     if ep in seen:
@@ -39,5 +39,5 @@ for a in ADDRS:
     code = res.getDecompiledFunction().getC() if res.decompileCompleted() else "// FAILED: " + res.getErrorMessage()
     path = os.path.join(OUTDIR, "fn_%x.c" % ep)
     open(path, "w").write(code)
-    print("fn_%x.c (%s, taille %s)" % (ep, fn.getName(), hex(fn.getBody().getNumAddresses())))
+    print("fn_%x.c (%s, size %s)" % (ep, fn.getName(), hex(fn.getBody().getNumAddresses())))
 project.close()

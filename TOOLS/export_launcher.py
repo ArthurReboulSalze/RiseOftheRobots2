@@ -1,4 +1,4 @@
-# Export de l'analyse du lanceur RISE2.EXE via PyGhidra (projet privé, sans toucher au projet GUI).
+# Export RISE2.EXE launcher analysis through PyGhidra (private project; leave the GUI project intact).
 # Sorties : ANALYSIS/launcher_functions.txt, ANALYSIS/launcher_decompiled.c, ANALYSIS/launcher_strings.txt
 import os, sys
 

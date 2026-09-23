@@ -1,4 +1,4 @@
-# Session PyGhidra réutilisable : ouverture du programme RISE2_EXR stocké dans ANALYSIS/exr_proj.
+# Reusable PyGhidra session: open RISE2_EXR in ANALYSIS/exr_proj.
 # Import: from ghidra_session import open_rotr2  ; puis work(program, flat)
 import os
 from project_paths import ANALYSIS
@@ -20,5 +20,5 @@ def open_rotr2():
 
 if __name__ == "__main__":
     project, program = open_rotr2()
-    print("OK:", program.getName(), "fonctions:", program.getFunctionManager().getFunctionCount())
+    print("OK:", program.getName(), "functions:", program.getFunctionManager().getFunctionCount())
     project.close()

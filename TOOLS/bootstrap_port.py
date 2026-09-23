@@ -27,7 +27,7 @@ def main():
     for name, url, expected in PACKAGES:
         target = args.output / name
         if target.exists():
-            print(f"Déjà présent : {name}")
+            print(f"Already present : {name}")
             continue
         with tempfile.TemporaryDirectory(prefix=".download-", dir=args.output) as temporary:
             temp = Path(temporary)
@@ -37,13 +37,13 @@ def main():
             with download.open("rb") as fp:
                 actual = hashlib.file_digest(fp, "sha256").hexdigest()
             if actual != expected:
-                raise ValueError(f"Empreinte SHA-256 incorrecte : {name}")
+                raise ValueError(f"SHA-256 mismatch: {name}")
             if name.endswith(".hpp"):
                 download.rename(target)
             else:
                 unzip(download, temp / "unpacked")
                 (temp / "unpacked" / name).rename(target)
-        print(f"Installé et vérifié : {name}")
+        print(f"Installed and verified : {name}")
 
 
 if __name__ == "__main__":

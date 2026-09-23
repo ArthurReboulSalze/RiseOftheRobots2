@@ -15,15 +15,15 @@ int Fighter::current_frame() const {
 
 const AtlasFrame* Fighter::current_atlas_frame() const {
     int img = current_frame();
-    // Les atlas ANL/ANR ont une entree vide initiale ; l'image MVS 0 est l'atlas 1.
+    // ANL/ANR atlases start with an empty entry; MVS image 0 is atlas frame 1.
     if (!atlas || img < 0 || img + 1 >= (int)atlas->frames.size()) return nullptr;
     return &atlas->frames[img + 1];
 }
 
 SDL_Rect Fighter::frame_rect(const AtlasFrame& frame, int camera_x) const {
     if (!atlas || atlas->frames.size() < 2) return {0, 0, 0, 0};
-    // Les images sont recadrees depuis un meme canevas 640x400. Leur largeur
-    // et leur hauteur variables ne doivent pas deplacer l'ancre du personnage.
+    // Frames are cropped from the same 640x400 canvas. Varying frame sizes
+    // must not move the fighter's anchor.
     const AtlasFrame& reference = atlas->frames[1];
     const int anchor_x = reference.origin_x + reference.rect_w / 2;
     const int anchor_y = reference.origin_y + reference.rect_h;
@@ -38,8 +38,8 @@ int Fighter::step(uint16_t inputs) {
     const MvsMove* mv = move();
     if (!mv) return -1;
     int state_change = -1;
-    // Les etats de marche bouclent sans transition de sortie. Leur cible est
-    // indiquee par les transitions avant/arriere de l'etat neutre.
+    // Walk states loop without exit transitions. The idle state's
+    // forward/backward transitions identify their target movement IDs.
     if (move_id != 0 && !mvs->moves.empty()) {
         for (const auto& t : mvs->moves[0].transitions) {
             if ((t.mask == IN_B0 || t.mask == IN_B5) && move_id == t.target &&
@@ -54,8 +54,8 @@ int Fighter::step(uint16_t inputs) {
             }
         }
     }
-    // 1) transitions — règle exacte de fn_234fa : si le masque contient des bits de
-    //    marche (0x21), la comparaison est restreinte à ces bits.
+    // 1) Transitions: fn_234fa restricts comparison to walk bits (0x21)
+    //    when those bits are present in the input mask.
     for (auto& t : mv->transitions) {
         uint16_t cur = inputs;
         if (t.mask & 0x21) cur = cur & 0x21;
@@ -68,7 +68,7 @@ int Fighter::step(uint16_t inputs) {
         }
     }
     if (state_change >= 0) return state_change;
-    // 2) avance la séquence
+    // 2) Advance the sequence.
     if (speed_level < 0 || speed_level >= (int)mv->sequences.size()) return -1;
     const auto& seq = mv->sequences[speed_level];
     if (seq.empty()) return -1;
@@ -76,10 +76,10 @@ int Fighter::step(uint16_t inputs) {
     if (frame_count == 0) return -1;
     if (seq_pos < 0 || seq_pos >= frame_count) seq_pos = 0;
     if (!playing) return -1;
-    // applique le déplacement du pas courant (déjà fait par l'appelant via movement())
+    // Apply current-step displacement (the caller already uses movement()).
     seq_pos++;
     if (seq_pos >= frame_count) {
-        // Le marqueur de fin n'est pas une image à afficher.
+        // The end marker is not a renderable image.
         if (seq.back().end && mv->flags != 0 && mv->resume_index < frame_count) {
             seq_pos = mv->resume_index;
         } else {
@@ -94,8 +94,8 @@ void Fighter::get_boxes(std::vector<Cl2Box>* attacks, std::vector<Cl2Box>* bodie
     const Cl2Frame& fr = cl2->frames[current_frame()];
     auto place = [&](const Cl2Box& b) {
         Cl2Box s = b;
-        // x : CL2 x4, ancré au centre du combattant (miroir si facing gauche)
-        // y : CL2 y2 = y absolu du canevas (déjà calé sur le sol)
+        // x: CL2 x4, anchored at fighter center (mirrored when facing left).
+        // y: CL2 y2, absolute canvas y (already aligned to the ground).
         int bx = b.x * 4 - cl2_ref_x;
         if (facing < 0) {
             s.x = x - bx - b.w * 4;

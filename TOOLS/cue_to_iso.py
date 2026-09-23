@@ -12,9 +12,9 @@ def convert(cue, output):
     cue, output = Path(cue).resolve(), Path(output).resolve()
     tracks = [track for track in read_cue(cue) if track.mode != "AUDIO"]
     if len(tracks) != 1:
-        raise ValueError("Une unique piste de données est nécessaire pour créer cette ISO.")
+        raise ValueError("Exactly one data track is required to create this ISO.")
     if output.exists():
-        raise FileExistsError(f"Image déjà présente : {output}")
+        raise FileExistsError(f"Image already exists : {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = None
     sha256 = hashlib.sha256()
@@ -30,9 +30,9 @@ def convert(cue, output):
             image.seek(16 * 2048)
             descriptor = image.read(7)
         if descriptor != b"\x01CD001\x01":
-            raise ValueError("La piste de données ne contient pas de volume ISO9660 valide.")
+            raise ValueError("The data track does not contain a valid ISO9660 volume.")
         if output.exists():
-            raise FileExistsError(f"Image créée entre-temps : {output}")
+            raise FileExistsError(f"Image was created in the meantime : {output}")
         os.rename(temporary, output)
         return {"path": str(output), "bytes": output.stat().st_size,
                 "sha256": sha256.hexdigest(), "track": tracks[0].number}
@@ -43,16 +43,16 @@ def convert(cue, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cue", required=True, type=Path, help="CUE du disque, avec son BIN adjacent")
-    parser.add_argument("--output", required=True, type=Path, help="Destination ISO (non écrasée)")
+    parser.add_argument("--cue", required=True, type=Path, help="Disc CUE with its adjacent BIN")
+    parser.add_argument("--output", required=True, type=Path, help="Destination ISO (never overwritten)")
     args = parser.parse_args()
     try:
         result = convert(args.cue, args.output)
     except (OSError, ValueError) as exc:
         parser.exit(1, f"Conversion interrompue : {exc}\n")
-    print(f"ISO de données : {result['path']} ({result['bytes']} octets)")
+    print(f"Data ISO : {result['path']} ({result['bytes']} bytes)")
     print(f"SHA-256 : {result['sha256']}")
-    print("Les pistes audio du CD restent dans le BIN/CUE source.")
+    print("CD audio tracks remain in the source BIN/CUE.")
 
 
 if __name__ == "__main__":

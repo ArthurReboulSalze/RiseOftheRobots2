@@ -29,7 +29,7 @@ target_link_libraries(rotr2 PRIVATE
   ${SDL2IMG_DIR}/lib/x64/SDL2_image.lib
 )
 
-# copier les DLL à côté de l'exécutable
+# Copy DLLs beside the executable.
 add_custom_command(TARGET rotr2 POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SDL2_DIR}/lib/x64/SDL2.dll $<TARGET_FILE_DIR:rotr2>
   COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SDL2IMG_DIR}/lib/x64/SDL2_image.dll $<TARGET_FILE_DIR:rotr2>

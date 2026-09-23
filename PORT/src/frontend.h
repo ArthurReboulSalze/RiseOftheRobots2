@@ -30,7 +30,7 @@ private:
     int intro_frame_ = 0;
     double intro_elapsed_ = 0.0;
     int title_choice_ = 0;
-    int selected_[2] = {1, 7}; // LOADER / DEADLIFT pour le premier essai
+    int selected_[2] = {1, 7}; // LOADER / DEADLIFT for the first test
     int robot_count_ = 28;
     bool match_requested_ = false;
     bool quit_requested_ = false;

@@ -1,4 +1,4 @@
-// Chargeurs d'assets pour le port : atlas de sprites (sorties d'extraction) + banques MVS.
+// Port asset loaders: extracted sprite atlases and MVS banks.
 #pragma once
 #include <string>
 #include <vector>
@@ -6,19 +6,19 @@
 #include "SDL.h"
 
 struct AtlasFrame {
-    int id;                 // index dans la banque (= l'"image" des séquences MVS)
-    int origin_x, origin_y; // position de la bbox dans le canevas source
-    int rect_x, rect_y, rect_w, rect_h; // emplacement dans l'atlas
+    int id;                 // bank index (the "image" referenced by MVS sequences)
+    int origin_x, origin_y; // bounding-box position in the source canvas
+    int rect_x, rect_y, rect_w, rect_h; // position in the atlas
     int page;               // atlas_XXX.png
     bool empty;
 };
 
 struct AtlasBank {
     std::string name;
-    int source_w = 0, source_h = 0;   // 320x200 (RB4) ou 640x400 (RBT)
+    int source_w = 0, source_h = 0;   // 320x200 (RB4) or 640x400 (RBT)
     int frame_count = 0;
     std::vector<AtlasFrame> frames;
-    std::vector<SDL_Texture*> pages;  // RGBA déjà coloré
+    std::vector<SDL_Texture*> pages;  // RGBA, already colorized
 };
 
 struct VideoBank {
@@ -26,28 +26,28 @@ struct VideoBank {
     std::vector<SDL_Texture*> frames;
 };
 
-// Banque de mouvements MVS convertie en JSON
+// MVS movement bank converted to JSON.
 struct MvsTransition { uint16_t mask, target; };
 struct MvsSeqEntry { int image; int ctrl; bool end; };
 struct MvsMove {
     int index;
-    std::vector<std::vector<MvsSeqEntry>> sequences; // 3 vitesses
-    std::vector<std::vector<int16_t>> movements;     // 3 déplacements (par pas)
+    std::vector<std::vector<MvsSeqEntry>> sequences; // three speed levels
+    std::vector<std::vector<int16_t>> movements;     // three displacement streams (per step)
     std::vector<MvsTransition> transitions;
     uint8_t auto_move, resume_index, param;
-    uint8_t flags;                     // octet +0x1C du descripteur MVS
+    uint8_t flags;                     // byte +0x1c of the MVS descriptor
 };
 
 struct MvsBank {
     std::vector<MvsMove> moves;
 };
 
-// Boîtes de collision CL2 (sémantique validée : attaque 5 o / corps 6 o / unique 5 o)
+// CL2 collision boxes: attack 5 bytes, body 6 bytes, single 5 bytes
 struct Cl2Box { int x, y, w, h, damage_or_type; };
 struct Cl2Frame {
-    std::vector<Cl2Box> attack_boxes;   // boîtes d'attaque (x,y,w,h,dégât)
-    std::vector<Cl2Box> body_boxes;     // boîtes de corps
-    std::vector<Cl2Box> single_box;     // boîte unique (poussée/empreinte)
+    std::vector<Cl2Box> attack_boxes;   // attack boxes (x, y, w, h, damage)
+    std::vector<Cl2Box> body_boxes;     // body boxes
+    std::vector<Cl2Box> single_box;     // single box (push/footprint)
 };
 struct Cl2Bank {
     std::string name;
