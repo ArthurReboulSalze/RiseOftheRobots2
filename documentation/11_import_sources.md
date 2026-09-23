@@ -105,6 +105,7 @@ l’ancienne copie ne doivent pas être réutilisées aveuglément sur la Direct
 | CUE/BIN CD 1 + CD 2 | Même jeu et musique principale que CD 1 seul ; bonus séparés |
 | ISO de données issue du CUE/BIN Director’s Cut | 358 246 400 octets ; volume RISE2_DC_D1, 1 128 fichiers dont 1 122 du jeu, empreintes des 1 122 fichiers égales à l’import CUE/BIN |
 | Lecteur virtuel de données simulé sans TOC audio | Données importées, musique numérique choisie et absence de CDDA signalée |
+| ISO montée par Windows sur `I:\` (CDFS) | Import depuis la lettre du lecteur réussi ; 1 122 fichiers du jeu identiques à l’import CUE/BIN, 30 robots et 105 ANI détectés ; zéro piste CDDA dans l’ISO, mode numérique choisi |
 | Tests synthétiques Python | 22 tests import/LE + 9 tests codecs réussis |
 | Build Release / CTest | Compilation réussie, test fighter_frames réussi |
 | Lecteurs C++ avec profils réels | Logos, titre, portraits et banques des 28 puis 30 robots chargés sans erreur |
@@ -112,7 +113,10 @@ l’ancienne copie ne doivent pas être réutilisées aveuglément sur la Direct
 | CD physique réel | **À faire** : aucun lecteur optique disponible sur la machine de test |
 
 Les tests synthétiques fabriquent leurs fichiers sans données originales. Les
-profils de test et leurs rapports se trouvent uniquement dans `LOCAL/`.
+profils de test et leurs rapports se trouvent uniquement dans `LOCAL/`. L’essai
+du lecteur virtuel monté par l’utilisateur valide désormais la détection du
+lecteur CDFS et la copie des données du jeu depuis ce lecteur. Il ne valide pas
+la lecture audio d’un CD mixte ni le matériel physique.
 La validation locale a utilisé Python 3.14.5 ; la matrice CI 3.12/3.14 sera
 exécutée après publication. La fenêtre Tkinter a été initialisée sans erreur ;
 ce contrôle ne remplace pas un essai utilisateur de tous ses boutons.
@@ -155,8 +159,10 @@ Les dépendances Windows sont récupérées par `bootstrap_port.py` depuis leurs
 projets officiels, avec versions fixes et SHA-256. Rien dans l’import ne lance
 les exécutables DOS. Les fichiers de décompilation restent privés.
 
-Avant publication : effectuer l’essai matériel CD, choisir la licence de notre
-code et revoir l’index. Aucun dépôt distant n’est créé à cette étape.
+La licence MIT de notre code et documentation est dans `LICENSE` (attribution
+collective « Rise 2 Port contributors »). Elle ne couvre pas les données du jeu.
+Avant publication : effectuer l’essai matériel CD et revoir l’index. Aucun
+dépôt distant n’est créé à cette étape.
 
 Références techniques : [pycdlib](https://clalancette.github.io/pycdlib/pycdlib-api.html),
 [RAW_READ_INFO Windows](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntddcdrm/ns-ntddcdrm-__raw_read_info),

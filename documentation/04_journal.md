@@ -4,6 +4,19 @@
 > Les hypothèses des premières sessions sont conservées pour l'historique ; les documents
 > 05, 09 et 10 décrivent l'état technique actuel.
 
+## Session 20 — 2026-09-23 : lecteur virtuel monté et licence MIT
+
+- L’utilisateur a monté l’ISO de données du CD 1 sur `I:\` (volume CDFS
+  `RISE2_DC_D1`). `TOOLS/import_game.py --source I:\ --import-only` a réussi.
+  Les 1 122 fichiers du jeu copiés depuis le lecteur ont exactement les mêmes
+  SHA-256 que depuis le CUE/BIN ; 30 robots et 105 ANI reconnus. La TOC ne
+  contient aucune piste CDDA ; l’import a choisi la musique numérique.
+  Cet essai valide le lecteur virtuel de données, pas encore le rip des pistes
+  d’un CD mixte ni un lecteur CD physique réel.
+- Licence MIT validée par l’utilisateur et ajoutée en `LICENSE`, avec
+  attribution collective « Rise 2 Port contributors ». README, liste de chemins
+  Git et audit d’index mis à jour. Aucun dépôt distant ni upload GitHub.
+
 ## Session 19 — 2026-09-23 : ISO de données pour le lecteur virtuel
 
 - `TOOLS/cue_to_iso.py` extrait sans montage la piste MODE1 du CUE/BIN du CD 1
@@ -15,7 +28,7 @@
   Les 30 robots et 105 ANI sont détectés ; la musique numérique est disponible.
 - L’import d’un lecteur CD virtuel contenant seulement les données tolère une
   TOC audio indisponible et le signale. Tests synthétiques dédiés réussis.
-  L’essai du lecteur virtuel monté par l’utilisateur reste à effectuer.
+  L’essai du lecteur virtuel monté par l’utilisateur suit en session 20.
 
 ## Session 18 — 2026-09-23 : imports privés, Director’s Cut et dépôt local
 

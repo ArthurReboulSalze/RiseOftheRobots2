@@ -6,6 +6,8 @@ Le projet reconstruit les images, mouvements, collisions et sons à partir de **
 Ce dépôt contient notre code, nos outils et nos notes de recherche. Il ne contient
 ni jeu original, ni images, films, musique, exécutables DOS ou résultats de décompilation.
 Les imports et conversions restent sur ton ordinateur. Projet indépendant, sans affiliation aux ayants droit.
+Notre code et notre documentation sont publiables sous [licence MIT](LICENSE) ;
+les données du jeu conservent les droits de leurs propriétaires.
 
 ## Préparer ton jeu
 
@@ -152,7 +154,7 @@ le contenu de l’index Git : seuls les chemins de code et de documentation pré
 sont admis. `SRC`, `LOCAL`, `EXTRACTED`, les captures, les projets Ghidra, les
 builds et les dépendances téléchargées sont exclus.
 
-Avant publication, il reste à valider le CD physique et à choisir la licence du
-code du projet. Les noms et contenus du jeu restent ceux de leurs ayants droit.
+Avant publication, il reste à valider le CD physique réel. Les noms et contenus
+du jeu restent ceux de leurs ayants droit.
 Les dépendances conservent leurs licences respectives : SDL2/SDL2_image (zlib),
 nlohmann/json (MIT), Pillow et pycdlib (voir leurs distributions).

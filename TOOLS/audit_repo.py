@@ -8,7 +8,7 @@ import sys
 
 def allowed(path):
     p = PurePosixPath(path)
-    if path in {".gitignore", ".gitattributes", "README.md", "requirements.txt", "IMPORTER.cmd", "PORT/CMakeLists.txt"}:
+    if path in {".gitignore", ".gitattributes", "README.md", "LICENSE", "requirements.txt", "IMPORTER.cmd", "PORT/CMakeLists.txt"}:
         return True
     directories = {"TOOLS": {".py"}, "TOOLS/tests": {".py"}, "TOOLS/ghidra_scripts": {".py"},
                    "TOOLS/templates": {".html"}, "PORT/src": {".cpp", ".h"}, "PORT/tests": {".cpp"},
