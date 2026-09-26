@@ -1,4 +1,6 @@
 #include "fighter.h"
+#include <algorithm>
+#include <cmath>
 
 const MvsMove* Fighter::move() const {
     if (!mvs || move_id < 0 || move_id >= (int)mvs->moves.size()) return nullptr;
@@ -22,16 +24,22 @@ const AtlasFrame* Fighter::current_atlas_frame() const {
 
 SDL_Rect Fighter::frame_rect(const AtlasFrame& frame, int camera_x) const {
     if (!atlas || atlas->frames.size() < 2) return {0, 0, 0, 0};
-    // Frames are cropped from the same 640x400 canvas. Varying frame sizes
-    // must not move the fighter's anchor.
+    // Frames are cropped from the same canvas; sprite_scale maps them to the
+    // 640x400 fight space (RB4 banks render x2). The anchor must not move.
+    const double s = sprite_scale;
     const AtlasFrame& reference = atlas->frames[1];
     const int anchor_x = reference.origin_x + reference.rect_w / 2;
     const int anchor_y = reference.origin_y + reference.rect_h;
     const int screen_x = x - camera_x;
-    const int left = facing >= 0
-        ? screen_x + frame.origin_x - anchor_x
-        : screen_x + anchor_x - frame.origin_x - frame.rect_w;
-    return {left, y + frame.origin_y - anchor_y, frame.rect_w, frame.rect_h};
+    const int w = (int)std::lround(frame.rect_w * s);
+    const int h = (int)std::lround(frame.rect_h * s);
+    int left;
+    if (facing >= 0)
+        left = (int)std::lround(screen_x + (frame.origin_x - anchor_x) * s);
+    else
+        left = (int)std::lround(screen_x - (frame.origin_x - anchor_x) * s - w);
+    const int top = (int)std::lround(y + (frame.origin_y - anchor_y) * s);
+    return {left, top, w, h};
 }
 
 int Fighter::step(uint16_t inputs) {
@@ -76,8 +84,29 @@ int Fighter::step(uint16_t inputs) {
     if (frame_count == 0) return -1;
     if (seq_pos < 0 || seq_pos >= frame_count) seq_pos = 0;
     if (!playing) return -1;
+    // Fin de sequence : les etats de deplacement/idle bouclent ; les autres (coups,
+    // reactions) reviennent a l'etat debout — sinon l'action se repete sans fin.
+    if (seq_pos == frame_count - 1) {
+        static const int kLoopStates[] = {0, 2, 3, 8, 9, 0x16, 0x1A, 0x20, 0x21,
+                                          0x22, 0x23, 0x3C, 0x3D, 0x3E};
+        const bool loops = std::find(std::begin(kLoopStates), std::end(kLoopStates),
+                                     move_id) != std::end(kLoopStates);
+        if (!loops) {
+            seq_pos = 0;
+            displacement = 0;
+            move_id = 0;
+            playing = true;
+            return 0;
+        }
+    }
     // Apply current-step displacement (the caller already uses movement()).
     seq_pos++;
+    if (sound_callback) {
+        // fn_226cc : les mouvements declenchent le sample 3 (pitchs 0x5000/0x3000 = 1250/750
+        // pour-mille du sample joué a 11025) ; le sample 15 variable reste au hit.
+        const int pitch = (seq_pos % 2) ? 1250 : 750;
+        sound_callback(player_index_, 3, pitch);
+    }
     if (seq_pos >= frame_count) {
         // The end marker is not a renderable image.
         if (seq.back().end && mv->flags != 0 && mv->resume_index < frame_count) {

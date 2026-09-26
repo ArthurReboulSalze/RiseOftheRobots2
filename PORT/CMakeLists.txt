@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(TP ${CMAKE_SOURCE_DIR}/thirdparty)
 set(SDL2_DIR ${TP}/SDL2-2.30.11)
 set(SDL2IMG_DIR ${TP}/SDL2_image-2.8.4)
+set(SDL2MIX_DIR ${TP}/SDL2_mixer-2.8.0)
 
 add_executable(rotr2
   src/main.cpp
@@ -19,6 +20,7 @@ add_executable(rotr2
 target_include_directories(rotr2 PRIVATE
   ${SDL2_DIR}/include
   ${SDL2IMG_DIR}/include
+  ${SDL2MIX_DIR}/include
   ${TP}
   src
 )
@@ -27,12 +29,14 @@ target_link_libraries(rotr2 PRIVATE
   ${SDL2_DIR}/lib/x64/SDL2.lib
   ${SDL2_DIR}/lib/x64/SDL2main.lib
   ${SDL2IMG_DIR}/lib/x64/SDL2_image.lib
+  ${SDL2MIX_DIR}/lib/x64/SDL2_mixer.lib
 )
 
 # Copy DLLs beside the executable.
 add_custom_command(TARGET rotr2 POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SDL2_DIR}/lib/x64/SDL2.dll $<TARGET_FILE_DIR:rotr2>
   COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SDL2IMG_DIR}/lib/x64/SDL2_image.dll $<TARGET_FILE_DIR:rotr2>
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SDL2MIX_DIR}/lib/x64/SDL2_mixer.dll $<TARGET_FILE_DIR:rotr2>
 )
 
 include(CTest)
@@ -52,4 +56,16 @@ if(BUILD_TESTING)
   add_custom_command(TARGET rotr2_asset_smoke POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SDL2_DIR}/lib/x64/SDL2.dll $<TARGET_FILE_DIR:rotr2_asset_smoke>
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SDL2IMG_DIR}/lib/x64/SDL2_image.dll $<TARGET_FILE_DIR:rotr2_asset_smoke>)
+
+  # Rendu headless du combat en PNG (verification interne sans fenetre).
+  add_executable(rotr2_headless tests/headless_render.cpp
+    src/assets.cpp src/fighter.cpp)
+  target_include_directories(rotr2_headless PRIVATE
+    ${SDL2_DIR}/include ${SDL2IMG_DIR}/include ${TP} src)
+  target_link_libraries(rotr2_headless PRIVATE
+    ${SDL2_DIR}/lib/x64/SDL2.lib ${SDL2_DIR}/lib/x64/SDL2main.lib
+    ${SDL2IMG_DIR}/lib/x64/SDL2_image.lib)
+  add_custom_command(TARGET rotr2_headless POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SDL2_DIR}/lib/x64/SDL2.dll $<TARGET_FILE_DIR:rotr2_headless>
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SDL2IMG_DIR}/lib/x64/SDL2_image.dll $<TARGET_FILE_DIR:rotr2_headless>)
 endif()
