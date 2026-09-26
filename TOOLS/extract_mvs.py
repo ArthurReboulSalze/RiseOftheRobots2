@@ -45,7 +45,13 @@ def parse_transitions(d, ptr, be=False):
     return out
 
 def parse_bank(path):
-    d = open(path, 'rb').read()
+    d = Path(path).read_bytes()
+    # FUN_23e97 loads 96 fourteen-byte STS records beside the MVS bank.
+    # These are fighter state properties; AIP files contain CPU action scripts.
+    sts_path = Path(path).with_suffix('.STS')
+    sts = sts_path.read_bytes() if sts_path.exists() else None
+    if sts is not None and len(sts) != 96 * 14:
+        raise ValueError(f"Invalid STS size: {sts_path}")
     be = False
     if d[:4] == b'MVS\x01':
         pass
@@ -88,6 +94,11 @@ def parse_bank(path):
             transitions=parse_transitions(d, tr, be) if tr else [],
             flags=hex(d[o+0x1c]), auto_move=d[o+0x1d], resume_index=d[o+0x1e], param=d[o+0x1f],
             descriptor_offset=o))
+        if sts is not None:
+            record = sts[i*14:(i+1)*14]
+            moves[-1]['state'] = dict(ground_mode=record[0],
+                                     action_type=struct.unpack('b', record[1:2])[0],
+                                     gravity=record[4], flags=record[6])
     return dict(magic='MVS' + ('-BE' if be else ''), dword4=hex(v1), dword8=hex(v2), count=len(offs), moves=moves)
 
 def main():

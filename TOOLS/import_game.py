@@ -148,7 +148,7 @@ def import_source(source, dest, log):
 def required_files():
     names = {"MAINSCR.GGF", "VS.GGF", "LLOGO.ANI", "VSFACE.ANL", "VSFACE.ANR", "VSFACE.PAL"}
     for slot in SLOTS:
-        names.update({f"RBT{slot}.{ext}" for ext in ("ANL", "ANR", "MVS")})
+        names.update({f"RBT{slot}.{ext}" for ext in ("ANL", "ANR", "MVS", "STS")})
         names.update((f"R{slot}.CL2", f"R{slot}.PAL", f"AG{slot}.GGF"))
     return names
 

@@ -42,78 +42,108 @@ SDL_Rect Fighter::frame_rect(const AtlasFrame& frame, int camera_x) const {
     return {left, top, w, h};
 }
 
+void Fighter::sample_inputs(uint16_t inputs) {
+    constexpr uint16_t attacks = IN_PUNCH | IN_KICK;
+    // FUN_197b6 suppresses ALL attack buttons if any was held last sample.
+    if (!(held_inputs & attacks)) pressed_inputs |= inputs & attacks;
+    pressed_inputs |= inputs & ~held_inputs & IN_UP;
+    held_inputs = inputs;
+}
+
+void Fighter::enter_move(int target, int first_frame) {
+    if (!mvs || target < 0 || target >= (int)mvs->moves.size()) return;
+    move_id = target;
+    seq_pos = first_frame;
+    displacement = repeat_count = 0;
+    playing = true;
+    hit_move = -1;
+    move_started = false;
+}
+
+void Fighter::update_vertical() {
+    const MvsMove* mv = move();
+    if (!mv) return;
+    if (!move_started) {
+        move_started = true;
+        // FUN_21baf: the impulse is a SIGNED byte, gravity an UNSIGNED STS byte.
+        if (mv->flags & 0x40) {
+            if (!airborne() || (mv->state_flags & 0x10))
+                vertical_velocity = (int)(int8_t)mv->param * 256;
+            vertical_gravity = (int)mv->gravity * 3 / 4;
+        }
+    }
+    if (!airborne()) return;
+    // FUN_231ac: truncate signed fixed-point displacement toward zero, then
+    // retain the low byte of the accumulator, as the original MOV byte does.
+    vertical_velocity += vertical_gravity * 2;
+    const int accumulated = vertical_fraction + vertical_velocity;
+    y += (accumulated / 256) * 2;
+    vertical_fraction = (unsigned)accumulated & 0xff;
+    if (y >= ground_y) {
+        y = ground_y;
+        vertical_velocity = vertical_fraction = 0;
+        if ((mv->flags & 0x82) == 0x02)
+            enter_move(mv->auto_move, mv->resume_index);
+    }
+}
+
 int Fighter::step(uint16_t inputs) {
     const MvsMove* mv = move();
     if (!mv) return -1;
-    int state_change = -1;
-    // Walk states loop without exit transitions. The idle state's
-    // forward/backward transitions identify their target movement IDs.
-    if (move_id != 0 && !mvs->moves.empty()) {
-        for (const auto& t : mvs->moves[0].transitions) {
-            if ((t.mask == IN_B0 || t.mask == IN_B5) && move_id == t.target &&
-                !(inputs & t.mask)) {
-                move_id = 0;
-                seq_pos = 0;
-                displacement = 0;
-                playing = true;
-                hit_move = -1;
-                state_change = 0;
-                mv = move();
-                break;
+    const int old_move = move_id;
+    sample_inputs(inputs);
+    constexpr uint16_t attacks = IN_PUNCH | IN_KICK;
+    uint16_t effective = (inputs & ~attacks) | (pressed_inputs & attacks);
+    // One jump per press; direction and crouch continue to use held inputs.
+    if (!(pressed_inputs & IN_UP) && !airborne()) effective &= ~IN_UP;
+    pressed_inputs = 0;
+    // FUN_197b6 swaps horizontal bits when the fighter faces left.
+    if (facing < 0)
+        effective = (effective & ~(IN_LEFT | IN_RIGHT)) |
+                    ((effective & IN_LEFT) >> 1) | ((effective & IN_RIGHT) << 1);
+
+    bool changed = false;
+    for (const auto& t : mv->transitions) {
+        uint16_t cur = effective;
+        // FUN_234fa compares attack masks independently of held directions.
+        if (t.mask & attacks) cur &= attacks;
+        if (cur == t.mask && t.target != move_id && t.target < mvs->moves.size()) {
+            enter_move(t.target);
+            changed = true;
+            mv = move();
+            break;
+        }
+    }
+    if (!changed && playing && speed_level >= 0 && speed_level < (int)mv->sequences.size()) {
+        const auto& seq = mv->sequences[speed_level];
+        const int count = (int)seq.size() - (!seq.empty() && seq.back().end ? 1 : 0);
+        if (count > 0) {
+            seq_pos = std::clamp(seq_pos, 0, count - 1);
+            if (seq_pos + 1 < count) {
+                ++seq_pos;
+            } else if ((mv->flags & 2) && !airborne()) {
+                // Automatic target, not an arbitrary list of looping move IDs.
+                enter_move(mv->auto_move, (mv->flags & 8) ? mv->resume_index : 0);
+            } else if (mv->flags & 2) {
+                // The DOS sequence waits at its final visible frame until landing.
+                seq_pos = count - 1;
+            } else if (mv->flags & 0x10) {
+                if (++repeat_count == mv->param)
+                    enter_move(mv->auto_move, mv->resume_index);
+                else
+                    seq_pos = (mv->flags & 8) && mv->resume_index < count
+                              ? mv->resume_index : count - 1;
+            } else if ((mv->flags & 8) && mv->resume_index < count) {
+                seq_pos = mv->resume_index;
+            } else if (mv->flags & 1) {
+                playing = false;
+            } else {
+                enter_move(0);
             }
         }
     }
-    // 1) Transitions: fn_234fa restricts comparison to walk bits (0x21)
-    //    when those bits are present in the input mask.
-    for (auto& t : mv->transitions) {
-        uint16_t cur = inputs;
-        if (t.mask & 0x21) cur = cur & 0x21;
-        if (cur == t.mask) {
-            seq_pos = 0;
-            displacement = 0;
-            move_id = t.target;
-            playing = true;
-            hit_move = -1;
-            return t.target;
-        }
-    }
-    if (state_change >= 0) return state_change;
-    // 2) Advance the sequence.
-    if (speed_level < 0 || speed_level >= (int)mv->sequences.size()) return -1;
-    const auto& seq = mv->sequences[speed_level];
-    if (seq.empty()) return -1;
-    const int frame_count = (int)seq.size() - (seq.back().end ? 1 : 0);
-    if (frame_count == 0) return -1;
-    if (seq_pos < 0 || seq_pos >= frame_count) seq_pos = 0;
-    if (!playing) return -1;
-    // Fin de sequence : les etats de deplacement/idle bouclent ; les autres (coups,
-    // reactions) reviennent a l'etat debout — sinon l'action se repete sans fin.
-    if (seq_pos == frame_count - 1) {
-        static const int kLoopStates[] = {0, 2, 3, 8, 9, 0x16, 0x1A, 0x20, 0x21,
-                                          0x22, 0x23, 0x3C, 0x3D, 0x3E};
-        const bool loops = std::find(std::begin(kLoopStates), std::end(kLoopStates),
-                                     move_id) != std::end(kLoopStates);
-        if (!loops) {
-            seq_pos = 0;
-            displacement = 0;
-            move_id = 0;
-            playing = true;
-            hit_move = -1;
-            return 0;
-        }
-    }
-    // Apply current-step displacement (the caller already uses movement()).
-    seq_pos++;
-    if (seq_pos >= frame_count) {
-        // The end marker is not a renderable image.
-        if (seq.back().end && mv->flags != 0 && mv->resume_index < frame_count) {
-            seq_pos = mv->resume_index;
-        } else {
-            seq_pos = frame_count - 1;
-            playing = false;
-        }
-    }
-    return -1;
+    update_vertical();
+    return changed || move_id != old_move ? move_id : -1;
 }
 void Fighter::get_boxes(std::vector<Cl2Box>* attacks, std::vector<Cl2Box>* bodies) const {
     if (!cl2 || current_frame() < 0 || current_frame() >= (int)cl2->frames.size()) return;
@@ -121,7 +151,7 @@ void Fighter::get_boxes(std::vector<Cl2Box>* attacks, std::vector<Cl2Box>* bodie
     auto place = [&](const Cl2Box& b) {
         Cl2Box s = b;
         // x: CL2 x4, anchored at fighter center (mirrored when facing left).
-        // y: CL2 y2, absolute canvas y (already aligned to the ground).
+        // y: CL2 y2, aligned to the ground plus the fighter's airborne offset.
         int bx = b.x * 4 - cl2_ref_x;
         if (facing < 0) {
             s.x = x - bx - b.w * 4;
@@ -130,7 +160,7 @@ void Fighter::get_boxes(std::vector<Cl2Box>* attacks, std::vector<Cl2Box>* bodie
             s.x = x + bx;
             s.w = b.w * 4;
         }
-        s.y = b.y * 2;
+        s.y = b.y * 2 + y - ground_y;
         s.h = b.h * 2;
         return s;
     };

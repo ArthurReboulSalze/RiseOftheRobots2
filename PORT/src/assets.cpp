@@ -106,6 +106,13 @@ const MvsBank* Assets::load_mvs(const std::string& bank) {
         mo.auto_move = mv["auto_move"];
         mo.resume_index = mv["resume_index"];
         mo.param = mv["param"];
+        if (mv.contains("state")) {
+            const auto& state = mv["state"];
+            mo.ground_mode = state["ground_mode"];
+            mo.action_type = state["action_type"];
+            mo.gravity = state["gravity"];
+            mo.state_flags = state["flags"];
+        }
         for (auto& s : mv["sequences"]) {
             std::vector<MvsSeqEntry> seq;
             for (auto& e : s) {

@@ -16,7 +16,7 @@ The window defaults to 1280×800 with a 640×400 logical surface. The original h
 
 An MVS image index `i` selects `atlas.frames[i+1]` because an RBT atlas begins with an empty entry. The corresponding collision frame is `CL2.records[i]`. Sequence-end markers are never rendered. Sprite placement uses the stored canvas origin, and the second fighter mirrors correctly. The fighter loop handles idle and directional transitions, provisional attack actions, CL2 box checks, 120-HP health, a 24-point super meter, and hit flash. A successful fighter regression test does not replace comparison with the DOS game.
 
-The input model currently distinguishes forward/back relative to facing; MVS walk movements 8 and 9 use masks 0x01 and 0x20. RBT0 movement data is empty for some walk states, while `FUN_21baf` applies displacement from other states. Exact keyboard-to-mask mapping, run/walk speed, and state transition timing remain open. Collision box coordinates scale x by four and y by two; the current ground anchor is near y=312 and the standing center reference near x=294. These placements require visual validation.
+Physical inputs use screen directions, converted to facing-relative MVS masks: forward/back are `0x02/0x04`, punches/kicks `0x01/0x20`, up/down `0x08/0x10`. Walking uses movements 2/3 and standing attacks 8/9. The attack group must be released before another attack, as in the DOS builder. Up launches one jump per press. MVS control bytes determine completion; STS metadata supplies gravity and state flags. Jumps now rise and fall with the verified DOS fixed-point arithmetic, and collision boxes follow the vertical offset. [Document 14](14_combat_inputs_and_jumps.md) details the source evidence, supported-bank restrictions and regression checks. Exact DOS timing and attack strengths remain open. Collision coordinates scale x by four and y by two; the ground anchor is y=312 and the standing center reference near x=294. These placements still require visual comparison.
 
 ## Video and menu limitations
 
@@ -25,7 +25,7 @@ The original supplied copy has only three ANI files: 39 LLOGO frames, 61 END fra
 ## Immediate work
 
 1. Decode the Director's Cut ANI streams and player timing, then integrate the complete intro and menu flow.
-2. Map physical controls and movement masks against `RISE2.CFG` and DOS play. For example, mask 0x10 leads to movement 7, but its real attack key and reach need validation; at an initial separation of 200 pixels a 98-pixel reach would miss by roughly 40 pixels.
+2. Complete the three attack strengths, scripted combos, aerial steering and interruption rules, then compare with DOS play. Basic keyboard masks, held-attack filtering and vertical jump arithmetic are now verified.
 3. Add a box-visualization toggle (for example F1) and compare CL2 hit, hurt, and push boxes with the original. The port now re-arms a hit on a move change rather than every simulation frame; compare the exact DOS rule.
 4. Complete hitstun, knockdowns, KO, timer, round transition, and camera clamping (`DAT_65fd6/65fda`).
 5. The port loads importer-generated 11,025 Hz MRW WAVs, converts them with a windowed-sinc filter to its 44.1 kHz 16-bit stereo device, and restores the original impact gain. [Audio investigation](13_audio_investigation.md) confirms the DOS quality settings and sample pitch/volume. Complete the MRS clock/control behavior and integrate the digital MGA–MGF fallback.

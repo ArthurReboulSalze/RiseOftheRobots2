@@ -30,12 +30,15 @@ struct VideoBank {
 struct MvsTransition { uint16_t mask, target; };
 struct MvsSeqEntry { int image; int ctrl; bool end; };
 struct MvsMove {
-    int index;
+    int index = 0;
     std::vector<std::vector<MvsSeqEntry>> sequences; // three speed levels
     std::vector<std::vector<int16_t>> movements;     // three displacement streams (per step)
     std::vector<MvsTransition> transitions;
-    uint8_t auto_move, resume_index, param;
-    uint8_t flags;                     // byte +0x1c of the MVS descriptor
+    uint8_t auto_move = 0, resume_index = 0, param = 0;
+    uint8_t flags = 0;                 // byte +0x1c of the MVS descriptor
+    // Four properties from the matching 14-byte STS record.
+    uint8_t ground_mode = 0, gravity = 248, state_flags = 0;
+    int action_type = 0;
 };
 
 struct MvsBank {

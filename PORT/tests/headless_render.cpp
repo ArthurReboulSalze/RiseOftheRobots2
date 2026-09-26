@@ -23,15 +23,15 @@ static void update_facing(Fighter& a, Fighter& b) {
     else if (b.x > a.x) b.facing = -1;
 }
 
-static uint16_t horizontal_input(bool left, bool right, int facing) {
+static uint16_t horizontal_input(bool left, bool right) {
     if (left == right) return 0;
-    const bool forward = facing >= 0 ? right : left;
-    return forward ? IN_B0 : IN_B5;
+    return right ? IN_RIGHT : IN_LEFT;
 }
 
 static void apply_movement(Fighter& f) {
     const MvsMove* mv = f.move();
-    if (!mv || f.seq_pos >= (int)mv->movements[f.speed_level].size()) return;
+    if (!mv || f.speed_level < 0 || f.speed_level >= (int)mv->movements.size() ||
+        f.seq_pos < 0 || f.seq_pos >= (int)mv->movements[f.speed_level].size()) return;
     int s = mv->movements[f.speed_level][f.seq_pos];
     if (s != 0) {
         f.x += s * 2 * f.facing;
@@ -144,6 +144,7 @@ int main(int argc, char** argv) {
         }
 
         int health_before = p2.health;
+        int min_jump_y = ground_y;
         for (int tick = 0; tick < 120; ++tick) {
             SDL_SetRenderDrawColor(ren, 16, 13, 20, 255);
             SDL_RenderClear(ren);
@@ -153,13 +154,14 @@ int main(int argc, char** argv) {
                 SDL_RenderCopy(ren, arena_tex, &src, &dst);
             }
             update_facing(p1, p2);
-            // script : p1 avance 30 ticks puis punch (0x10) pendant 10 ticks, reprise
+            // Approach, hold punch, release, and punch again. Each hold is one attack.
             uint16_t in1 = 0;
-            if (tick < 30) in1 = horizontal_input(false, true, p1.facing);
-            else if (tick >= 40 && tick < 55) in1 = 0x10;
-            else if (tick >= 70 && tick < 85) in1 = 0x10;
+            if (tick < 30 && p2.x - p1.x > 100) in1 = horizontal_input(false, true);
+            else if (tick >= 40 && tick < 55) in1 = IN_PUNCH;
+            else if (tick >= 70 && tick < 85) in1 = IN_PUNCH;
             p1.step(in1);
-            p2.step(0);
+            p2.step(tick >= 90 ? IN_UP : 0);
+            min_jump_y = SDL_min(min_jump_y, p2.y);
             apply_movement(p1);
             apply_movement(p2);
             update_facing(p1, p2);
@@ -207,7 +209,10 @@ int main(int argc, char** argv) {
             }
         }
         check(hits > 0, "au moins un coup porte pendant la simulation");
+        check(hits == 2, "deux appuis maintenus produisent exactement deux impacts");
         check(p2.health < health_before, "les degats s'appliquent");
+        check(min_jump_y < ground_y - 100 && !p2.airborne() && p2.y == ground_y,
+              "le saut de RBTF monte puis atterrit sans repetition");
         printf("       hits=%d ; vie p2 : %d -> %d\n", hits, health_before, p2.health);
     } catch (const std::exception& e) {
         printf("[ECHEC] exception : %s\n", e.what());

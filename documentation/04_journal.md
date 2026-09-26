@@ -2,6 +2,14 @@
 
 This is a chronological research log. Early interpretations are preserved here as history; documents 05, 07, 08, 09, and 10 describe the corrected current understanding. In particular, early claims that MVS held sound and MRW held video were disproved. The French originals remain in the local Git history; this public version records their findings in English.
 
+## Session 28 — 2026-09-26: held attacks and jump physics
+
+Ghidra and assembly confirmed that `FUN_197b6` suppresses the complete attack-button group while any attack key remains held, then swaps horizontal bits according to facing. The port's guessed loop-state list incorrectly included standing attacks 8/9; it was replaced with MVS automatic-target, hold and resume handling. Input sampling now retains taps observed between simulation ticks, and attacks require a release before another press.
+
+`FUN_23e97` loads 96 fourteen-byte STS state records. The pointer previously labelled AIP in the physics notes actually selects STS. `FUN_21baf` initializes the signed MVS impulse and unsigned STS gravity; `FUN_231ac` performs fixed-point vertical motion and landing. These rules now move sprites and collision boxes together. Up triggers one jump per press. The importer/exporter carries STS metadata alongside MVS, and the local profiles were refreshed. RBT0/RBTT have no normal standing jump transition in the supplied data; this restriction is preserved.
+
+`TOOLS/verify_x86_fighter.py` executed original input/physics instructions: attack suppression, facing reversal and the RBTF jump trajectory matched the new regression checks. Release/CTest, all 30 private robot banks and the headless two-hit/jump simulation passed. See document 14 for evidence and remaining combat limits.
+
 ## Session 27 — 2026-09-26: sound-quality verification and clean builds
 
 Both supplied DOS executables were checked in Ghidra and by executing their original audio instructions with Unicorn. The five SOUND QUALITY requests are 5,000, 6,500, 8,000, 9,500 and 11,025 Hz, with eight-bit mono format. All 69 common MRW banks are unchanged in Director's Cut Disc 1; no alternative high-resolution fighter bank was found in its complete data filesystem. The exact sample call convention is EAX=sample, EDX=volume, EBX=bank, ECX=16.16 rate. Thus direct-hit EDX `0x2000` is approximately 25% gain; ECX `0x10000` gives 11,025 Hz. The earlier session-21 register interpretation was wrong.

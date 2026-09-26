@@ -16,7 +16,7 @@ Each robot's MVS bank contains 96 movement descriptors. The normal header begins
 | `+0x1e` | Resume index |
 | `+0x1f` | Repeat or vertical-impulse field |
 
-An animation sequence consists of two-byte entries; `image = 2*b0 + (b1 & 1)` and `b0 == 0xff` ends it. MVS image `i` maps to atlas frame `i+1` because RBT atlases begin with an empty entry, and to CL2 record `i`. In RBT0, descriptor `0x190` is idle: sequence at `0xd90` yields images `0,0,1,1,2,2,3,3,2,2,1,1` and then `ff`; transitions at `0xdaa` include masks 0x10/0x14/0x12 to movement 7 and 0x04 to movement 2. The idle displacement is zero. `FUN_217a4` reads transitions at `+0x18`; `FUN_234fa` chooses the next move; `FUN_21baf` applies horizontal deltas with a factor of two and facing direction. The 30 converted banks contain 2,880 movements. Exact physical-button mapping and DOS timing remain to be verified.
+An animation sequence consists of two-byte entries; `image = 2*b0 + (b1 & 1)` and `b0 == 0xff` ends it. MVS image `i` maps to atlas frame `i+1` because RBT atlases begin with an empty entry, and to CL2 record `i`. In RBT0, descriptor `0x190` is idle: sequence at `0xd90` yields images `0,0,1,1,2,2,3,3,2,2,1,1` and then `ff`; transitions at `0xdaa` include masks 0x10/0x14/0x12 to movement 7 and 0x04 to movement 2. The idle displacement is zero. `FUN_2163a` reads transitions at `+0x18`; `FUN_234fa` chooses the next move; `FUN_21baf` applies horizontal deltas with a factor of two and facing direction. The 30 converted banks contain 2,880 movements. [Document 14](14_combat_inputs_and_jumps.md) now verifies physical input filtering, control flags, STS gravity, vertical impulse and landing. Exact DOS timing remains open.
 
 ## MRW: digital audio samples
 
@@ -58,4 +58,4 @@ The original game supports CD audio and digital music. The user's rip has nine C
 
 ## Next reverse-engineering tasks
 
-Decode the 102 additional ANI files and their timing; finish MRS event timing and pitch; map the ten physical controls to the MVS masks; decode CHRSET fonts; and verify CDDA selection and digital-music playback against the DOS game.
+Decode the 102 additional ANI files and their timing; finish MRS event timing and pitch; complete attack-strength and combo handling beyond the verified basic inputs; decode CHRSET fonts; and verify CDDA selection and digital-music playback against the DOS game.

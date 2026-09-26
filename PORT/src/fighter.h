@@ -4,16 +4,18 @@
 #include "SDL.h"
 #include <vector>
 
-// Logical input bits (six bits; exact names require RISE2.CFG and playtesting).
+// Public inputs use screen directions. MVS masks use forward/back after facing.
 enum InputBits : uint16_t {
-    IN_B0 = 0x01, IN_B1 = 0x02, IN_B2 = 0x04, IN_B3 = 0x08, IN_B4 = 0x10, IN_B5 = 0x20,
+    IN_PUNCH = 0x01, IN_RIGHT = 0x02, IN_LEFT = 0x04,
+    IN_UP = 0x08, IN_DOWN = 0x10, IN_KICK = 0x20,
 };
 
 struct Fighter {
     const AtlasBank* atlas = nullptr;
     const MvsBank* mvs = nullptr;
 
-    int x = 0, y = 0;          // arena anchor (logical coordinates)
+    int x = 0, y = 312;        // arena anchor (logical coordinates)
+    int ground_y = 312;
     int facing = 1;            // 1 faces right, -1 faces left
     int move_id = 0;           // current movement ID (state in the MVS table)
     int seq_pos = 0;           // position in the current sequence
@@ -32,6 +34,10 @@ struct Fighter {
 
     void set_banks(const AtlasBank* a, const MvsBank* m) { atlas = a; mvs = m; }
 
+    // Sample every render iteration so a tap between simulation ticks survives.
+    void sample_inputs(uint16_t inputs);
+    bool airborne() const { return y < ground_y || vertical_velocity != 0; }
+
     // Advance one frame: input transition, otherwise next sequence step.
     // Return the target on a transition, or -1.
     int step(uint16_t inputs);
@@ -43,4 +49,13 @@ struct Fighter {
     int current_frame() const;        // MVS image / CL2 index; atlas = image + 1
     const AtlasFrame* current_atlas_frame() const;
     SDL_Rect frame_rect(const AtlasFrame& frame, int camera_x) const;
+
+private:
+    uint16_t held_inputs = 0, pressed_inputs = 0;
+    int vertical_velocity = 0; // signed 8.8 DOS velocity
+    int vertical_fraction = 0, vertical_gravity = 0;
+    int repeat_count = 0;
+    bool move_started = false;
+    void enter_move(int target, int first_frame = 0);
+    void update_vertical();
 };

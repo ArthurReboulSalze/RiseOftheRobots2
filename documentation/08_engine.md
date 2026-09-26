@@ -10,8 +10,10 @@ Analysis starts at the blitter (`FUN_1c819`) and follows the combat cluster in `
 | `FUN_2163a` | Combat-frame update for both players: inputs, `FUN_234fa` state machine, `FUN_21baf` physics, camera, and HUD |
 | `FUN_25615` | Facing update for the two players; earlier notes incorrectly treated it as the complete frame step |
 | `FUN_234fa` | Input-to-move state machine, chaining, transitions, and stun |
+| `FUN_197b6` | Keyboard attack filtering and facing-relative direction masks |
 | `FUN_2298b` | Input smoothing, at most four units per frame |
 | `FUN_21baf` | Physics and collision update; called six times at round start and twice per frame |
+| `FUN_231ac` | Fixed-point vertical velocity, gravity and landing |
 | `FUN_35a7c` / `FUN_35eb8` | CPU controller and decision-making |
 | `FUN_12cc6` / `FUN_14c04` | Match and robot loading |
 | `FUN_15403` | Screen controller and availability mask near `0x62998` |
@@ -31,43 +33,49 @@ The camera moves when the fighters' horizontal separation reaches approximately 
 
 ## Player state
 
-Player 0 begins at `0x6620e` and player 1 at `0x662a5`; stride is `0x97` (151 bytes). The dword at `0x6620c` is `(animation_index << 16) | state_id`.
+Player 0's movement ID is at `0x6620e` and player 1's at `0x662a5`; stride is `0x97` (151 bytes). The dword at `0x6620c` has the movement ID in its high word; the sprite-image index is a separate word at `0x66210`.
 
 | Offset | Field and evidence |
 |---|---|
 | `+0x00` | u16 state ID |
-| `+0x02` | u16 current animation index, used by CL2 and movement tables |
+| `+0x02` | u16 current sprite-image index, used by CL2 |
 | `+0x04` / `+0x06` | Arena x / y positions |
 | `+0x08` | Frame within state |
-| `+0x16` | Flags: bit 1 KO, bits 0x20/0x40 state-dependent |
+| `+0x0e` | Signed 8.8 vertical velocity |
+| `+0x14` | Fractional vertical-displacement accumulator |
+| `+0x16` | Flags: bit 0 facing, bit 1 CPU control, other bits state-dependent |
 | `+0x2a` | Direction/button input mask |
 | `+0x2c` | Health |
 | `+0x2e` | Smoothed input value |
 | `+0x46` | Ground y |
-| `+0x4e` | Per-state AIP record pointer; record byte +6 bit 0x20 marks uninterruptible |
+| `+0x44` | Fixed-point gravity |
+| `+0x4e` | STS state-table pointer; record byte +6 bit 0x20 inhibits scripted interruption |
 | `+0x6c` | Transition lock and adjacent freeze counter |
 | `+0x6e` | Stun counter |
 | `+0x79` | 0/1 marker checked by input flow; exact meaning unresolved |
 | `+0x83..0x97` | AI variables |
 
-Important runtime tables: `DAT_685cc/685d4` are relocated MVS movement pointers; `DAT_68524 + player*4 + move_id*0x14` addresses additional AIP movement records; `DAT_685dc + player*0x10` holds encoded combo input scripts with -1/-2 escapes; `DAT_70314 + player*0x3c` holds three 0x14-byte projectile slots. `DAT_65fe0` stores keyboard bits, six per player. At separation below `0x3d` (61 pixels), close-range moves add `0x40` to their move ID.
+Important runtime tables: `DAT_685cc/685d4` are relocated MVS movement pointers; `DAT_68524 + player*4 + move_id*0x14` addresses additional AIP movement records; `DAT_685dc + player*0x10` holds encoded combo input scripts with -1/-2 escapes; `DAT_70314 + player*0x3c` holds three 0x14-byte projectile slots. `DAT_65fe0` stores keyboard bits, six per player. Attacks use bits `0x01/0x20`, forward/back use `0x02/0x04`, up/down use `0x08/0x10`. At separation below `0x3d` (61 pixels), close-range moves add `0x40` to their move ID. [Document 14](14_combat_inputs_and_jumps.md) corrects the earlier input, STS and jump interpretations.
 
 ## Known state IDs
 
 | ID | Working interpretation |
 |---|---|
 | `0x00` | Standing idle |
-| `0x02/0x03` | Crouch/down and rise, exact split pending |
+| `0x02/0x03` | Backward/forward walk |
+| `0x07` | Crouch entry |
+| `0x08/0x09` | Standing punch/kick |
 | `0x0d/0x0e` | Stun/down reactions |
-| `0x10` | Knockdown recovery |
-| `0x12` | Possible jump |
+| `0x10` | Crouch hold |
+| `0x12` | Single-frame automatic-return state; precise use pending |
 | `0x14` | Hit reaction |
-| `0x16` | Possible walk |
-| `0x19` | Dizzy |
-| `0x1a/0x21` | Forward/backward pair |
-| `0x20` | Possible crouch guard |
-| `0x22/0x23` | Towards/away facing pair |
-| `0x2a` | Airborne/fall |
+| `0x16` | Single-frame automatic-return state; precise use pending |
+| `0x17` | Rise from crouch |
+| `0x18/0x19` | Crouching attacks |
+| `0x1a/0x21` | Automatic-return states; precise use pending |
+| `0x20` | Neutral jump |
+| `0x22/0x23` | Backward/forward jump |
+| `0x25..0x2a` | Airborne attacks |
 | `0x34/0x38` | Special reactions |
 | `0x3c/0x3d/0x3e` | Movement states |
 | `0x40/0x41/0x42` | Special attacks that inhibit input smoothing |
@@ -77,17 +85,18 @@ Important runtime tables: `DAT_685cc/685d4` are relocated MVS movement pointers;
 | `0x54` | Possible finishing strike |
 | `0x58` | Super attack at full meter (0x18 = 24), without normal collision |
 
-A state is normally interruptible when `(state & 0xf) < 10`, subject to the AIP uninterruptible flag. States above `0x4f` receive special defense handling.
+Scripted interruption uses `(state & 0xf) < 10` and additional state checks, subject to STS byte +6 bit `0x20`. States above `0x4f` receive special defense handling. Ordinary transition tables are also evaluated separately.
 
 `FUN_25615` faces player 0 right and player 1 left when `x0 < x1`, reversing them when `x0 > x1`. Facing changes apply only to a listed subset of states: 0, 2, 3, 6, 0x10, 0x12, 0x16, 0x1a, 0x20–0x23, 0x3c–0x3e, 0x4a–0x4d, and 0x4f. Paired states include `0x22↔0x23`, `0x4c↔0x4d`, and `0x1a↔0x21`; `FUN_26321` restarts their animation. Turning uses `0x10→0x45` and other transitions to `0x44`.
 
 ## Physics and movement: `FUN_21baf`
 
-- `DAT_66285 + p*0x97` counts animation frames; `DAT_62742 + anim*2` contains duration information. `FUN_3776e` and `FUN_226cc` advance it.
+- `DAT_66285 + p*0x97` counts ticks between particle effects; the threshold at `DAT_62742` is indexed by the player's energy divided by 16. `FUN_3776e` supplies random values and `FUN_226cc` creates the particle effect; neither advances the fighter animation.
 - `DAT_6627a` is post-hit freeze, decremented by 0x20; `DAT_6626c` is a countdown and `DAT_66270` a lock.
 - `DAT_685cc + p*4 + (anim >> 16)*4` selects a movement table. Speed level from the player's low defense bits and `DAT_66256` selects one of three signed displacement streams. X changes by twice the displacement, signed according to facing.
 - Energy falls by the per-frame cost in `DAT_66299`; at zero it clamps and sets `DAT_66398`.
-- AIP record bytes +5/+6 update runtime flags. Bit 7 may indicate airborne state and needs confirmation.
+- STS record bytes +5/+6 update runtime flags. STS byte +6 bit `0x80` flips facing at sequence completion; it is not an airborne marker.
+- MVS bit `0x40` initializes a signed impulse from descriptor +0x1f and unsigned gravity from STS byte +4. `FUN_231ac` advances Y, clamps to the ground and selects the landing target. See document 14 for the exact arithmetic and verified trajectory.
 
 ## Hits and damage: `FUN_38b72`
 
@@ -138,4 +147,4 @@ python TOOLS/exr_decompile_at.py <hex-address>
 python TOOLS/exr_disasm_fn.py <hex-address>
 ```
 
-The reverse call graph is `ANALYSIS/exr_callgraph.txt` (callee → callers). Remaining targets include full input-bit mapping, MRS clock/control behavior and integration, AI behavior, round timer, exact movement speed, and visual validation of CL2 box placement. MRS header/event layout, SOS register parameters and sound-quality settings are now documented in [the audio investigation](13_audio_investigation.md).
+`ANALYSIS/exr_callgraph.txt` lists functions and their callees. Remaining targets include full attack-strength/combo handling, MRS clock/control behavior and integration, AI behavior, round timer, exact movement timing, and visual validation of CL2 box placement. MRS header/event layout, SOS register parameters and sound-quality settings are documented in [the audio investigation](13_audio_investigation.md); attack filtering and jump physics are verified in document 14.

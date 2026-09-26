@@ -38,6 +38,37 @@ int main(int argc, char** argv) {
             fighter.cl2 = robot_assets.load_cl2(std::string("R") + slot);
             fighter.step(0);
             if (!fighter.current_atlas_frame()) throw std::runtime_error("No idle frame: " + bank);
+            const auto* moves = fighter.mvs;
+            for (uint16_t input : {IN_PUNCH, IN_KICK}) {
+                Fighter attack;
+                attack.set_banks(fighter.atlas, moves);
+                int entries = 0;
+                for (int tick = 0; tick < 100; ++tick) {
+                    const int target = attack.step(input);
+                    if (target == 8 || target == 9) ++entries;
+                    if (!attack.current_atlas_frame())
+                        throw std::runtime_error("Invisible held attack: " + bank);
+                }
+                if (entries != 1) throw std::runtime_error("Held attack repeated: " + bank);
+            }
+            bool supports_jump = false;
+            for (const auto& transition : moves->moves[0].transitions)
+                if (transition.mask == IN_UP) supports_jump = true;
+            if (supports_jump) {
+                Fighter jump;
+                jump.set_banks(fighter.atlas, moves);
+                int takeoffs = 0;
+                bool was_airborne = false;
+                for (int tick = 0; tick < 100; ++tick) {
+                    jump.step(IN_UP);
+                    if (jump.airborne() && !was_airborne) ++takeoffs;
+                    was_airborne = jump.airborne();
+                    if (!jump.current_atlas_frame())
+                        throw std::runtime_error("Invisible jump: " + bank);
+                }
+                if (takeoffs != 1 || jump.airborne() || jump.y != jump.ground_y)
+                    throw std::runtime_error("Jump repeated or failed to land: " + bank);
+            }
             frontend.key(SDLK_RIGHT);
             frontend.key(SDLK_d);
         }
@@ -46,7 +77,7 @@ int main(int argc, char** argv) {
             throw std::runtime_error("Bonus robots unavailable");
         frontend.key(SDLK_RETURN);
         if (!frontend.take_match_request()) throw std::runtime_error("Match not requested");
-        std::printf("Intro, title, %d portraits and robot banks loaded successfully.\n", count);
+        std::printf("Intro, title, %d robot banks, held attacks and supported jumps checked.\n", count);
     } catch (const std::exception& error) {
         std::fprintf(stderr, "%s\n", error.what());
         result = 1;

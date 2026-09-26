@@ -48,16 +48,11 @@ static void update_facing(Fighter& a, Fighter& b) {
     else if (b.x > a.x) b.facing = -1;
 }
 
-static uint16_t horizontal_input(bool left, bool right, int facing) {
-    if (left == right) return 0;
-    const bool forward = facing >= 0 ? right : left;
-    return forward ? IN_B0 : IN_B5;
-}
-
 // Apply current-movement displacement (one step per frame, scaled x2 by facing).
 static void apply_movement(Fighter& f) {
     const MvsMove* mv = f.move();
-    if (!mv || f.seq_pos >= (int)mv->movements[f.speed_level].size()) return;
+    if (!mv || f.speed_level < 0 || f.speed_level >= (int)mv->movements.size() ||
+        f.seq_pos < 0 || f.seq_pos >= (int)mv->movements[f.speed_level].size()) return;
     int s = mv->movements[f.speed_level][f.seq_pos];
     if (s != 0) {
         // A step moves along facing; the file encodes facing=1.
@@ -222,6 +217,7 @@ int main(int argc, char** argv) {
                      frontend.player(player_index).name, bank.c_str(), scale);
                 fighter.x = x;
                 fighter.y = ground_y;
+                fighter.ground_y = ground_y;
                 fighter.facing = facing;
                 fprintf(stderr, "Player %d: %s (%s)\n", player_index + 1,
                         frontend.player(player_index).name, bank.c_str());
@@ -287,32 +283,22 @@ int main(int argc, char** argv) {
             if (elapsed > tick_seconds * 2) elapsed = tick_seconds * 2;
             accumulator += elapsed;
             frontend.update(elapsed);
+            uint16_t in1 = 0;
+            if (frontend.screen() == Screen::Fight && !paused) {
+                const Uint8* kb = SDL_GetKeyboardState(nullptr);
+                auto down = [&](SDL_Keycode k) { return k != SDLK_UNKNOWN && kb[SDL_GetScancodeFromKey(k)]; };
+                if (down(p1keys[3])) in1 |= IN_RIGHT;
+                if (down(p1keys[2])) in1 |= IN_LEFT;
+                if (down(p1keys[0])) in1 |= IN_UP;
+                if (down(p1keys[1])) in1 |= IN_DOWN;
+                if (down(p1keys[4]) || down(p1keys[5]) || down(p1keys[6])) in1 |= IN_PUNCH;
+                if (down(p1keys[7]) || down(p1keys[8]) || down(p1keys[9])) in1 |= IN_KICK;
+                p1.sample_inputs(in1);
+            }
             if (frontend.screen() == Screen::Fight && !paused && accumulator >= tick_seconds) {
                 accumulator -= tick_seconds;
                 if (accumulator >= tick_seconds) accumulator = 0.0;
                 update_facing(p1, p2);
-                const Uint8* kb = SDL_GetKeyboardState(nullptr);
-
-                // Player 1: arrow keys and J/K.
-                // Entrees : semantique exacte de fn_197b6 —
-                // 0x02 = droite (avance), 0x04 = gauche (recul), 0x08 = haut, 0x10 = bas,
-                // 0x01 = poings (01/02/03), 0x20 = pieds (P1/P2/P3). JAMAIS relatifs au facing.
-                auto down = [&](SDL_Keycode k) { return k != SDLK_UNKNOWN && kb[SDL_GetScancodeFromKey(k)]; };
-                uint16_t in1 = 0;
-                if (down(p1keys[3])) in1 |= 0x02;   // RIGHT
-                if (down(p1keys[2])) in1 |= 0x04;   // LEFT
-                if (down(p1keys[0])) in1 |= 0x08;   // UP
-                if (down(p1keys[1])) in1 |= 0x10;   // DOWN
-                if (down(p1keys[4]) || down(p1keys[5]) || down(p1keys[6])) in1 |= 0x01;  // poings
-                if (down(p1keys[7]) || down(p1keys[8]) || down(p1keys[9])) in1 |= 0x20;  // pieds
-                uint16_t in2 = 0;
-                if (down(p2keys[3])) in2 |= 0x02;
-                if (down(p2keys[2])) in2 |= 0x04;
-                if (down(p2keys[0])) in2 |= 0x08;
-                if (down(p2keys[1])) in2 |= 0x10;
-                if (down(p2keys[4]) || down(p2keys[5]) || down(p2keys[6])) in2 |= 0x01;
-                if (down(p2keys[7]) || down(p2keys[8]) || down(p2keys[9])) in2 |= 0x20;
-
                 int old_move1 = p1.move_id, old_move2 = p2.move_id;
 
                 // IA minimale (placeholder du 35eb8) : s'approche, cogne de temps en temps.
@@ -321,20 +307,18 @@ int main(int argc, char** argv) {
                 uint16_t in2_ai = 0;
                 {
                     const int dx = std::abs(p2.x - p1.x);
-                    const bool forward = p2.facing >= 0 ? kb[SDL_SCANCODE_D] || true : kb[SDL_SCANCODE_A] || true;
-                    (void)forward;
                     if (dx > 170) {
                         // marche vers p1 : la droite ecran si p2 est a gauche de p1
-                        in2_ai = (p2.x < p1.x) ? 0x02 : 0x04;
+                        in2_ai = (p2.x < p1.x) ? IN_RIGHT : IN_LEFT;
                     } else if (ai_clock % 60 < 12 && p2.flash == 0) {
-                        in2_ai = 0x10; // punch 1
+                        in2_ai = IN_PUNCH;
                     }
                 }
 
                 int t1 = p1.step(in1);
                 int t2 = p2.step(in2_ai);
                 if (t1 >= 0) fprintf(stderr, "p1: m%d -> m%d (entree=%#x)\n", old_move1, t1, in1);
-                if (t2 >= 0) fprintf(stderr, "p2: m%d -> m%d (entree=%#x)\n", old_move2, t2, in2);
+                if (t2 >= 0) fprintf(stderr, "p2: m%d -> m%d (entree=%#x)\n", old_move2, t2, in2_ai);
                 apply_movement(p1);
                 apply_movement(p2);
                 update_facing(p1, p2);
