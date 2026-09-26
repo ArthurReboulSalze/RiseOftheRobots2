@@ -12,7 +12,17 @@ constexpr SDL_Color grey{92, 101, 120, 255};
 constexpr SDL_Color cyan{142, 222, 248, 255};
 constexpr SDL_Color red{255, 60, 40, 255};
 
-constexpr const char* kTitleItems[5] = {"START", "OPTIONS", "HIGH SCORE", "CREDITS", "QUIT"};
+constexpr const char* kTitleItems[6] = {"START", "OPTIONS", "PLAYER", "HIGH SCORE", "CREDITS", "QUIT"};
+constexpr const char* kMovieCategories[]={"ALL VIDEOS","ROBOT ENDINGS","LINKED ANIMATIONS","INTRO / EPILOGUE","BONUS VIDEOS"};
+constexpr const char* kMovieResolutions[]={"HIGH RES","LOW RES","BOTH"};
+
+std::string movie_label(const MovieInfo& movie) {
+    std::string label=movie.title.empty() ? movie.name:movie.title;
+    for (const auto& robot : kRoster) if (movie.robot_slot==std::string(1,robot.slot)) label=robot.name;
+    label+=" / "+movie.kind;
+    if (movie.placeholder) label+=" [SOURCE PLACEHOLDER]";
+    return label;
+}
 constexpr const char* kEntryNames[10] = {
     "UP", "DOWN", "LEFT", "RIGHT", "PUNCH LIGHT", "PUNCH MEDIUM", "PUNCH HEAVY",
     "KICK LIGHT", "KICK MEDIUM", "KICK HEAVY"};
@@ -84,7 +94,7 @@ SDL_Keycode dos_to_sdl(uint16_t dos_scancode) {
 }
 
 Frontend::Frontend(SDL_Renderer* renderer, Assets& assets, const std::string& assets_dir)
-    : renderer_(renderer), font_(renderer, assets_dir),
+    : renderer_(renderer), assets_(assets), font_(renderer, assets_dir),
       intro_(assets.load_video("LLOGO")), portraits_(assets.load_atlas("VSFACE")),
       title_(assets.load_ggf("MAINSCR")),
       back_(assets.load_ggf("BACK")), hs_(assets.load_ggf("HS")),
@@ -97,6 +107,8 @@ Frontend::Frontend(SDL_Renderer* renderer, Assets& assets, const std::string& as
     load_keymap();
     settings_.load(options_path_);
     load_hiscores();
+    movies_=assets_.movie_catalog();
+    filter_movies();
 }
 
 bool Frontend::take_match_request() {
@@ -178,14 +190,15 @@ void Frontend::key(SDL_Keycode key) {
         return;
     }
     if (screen_ == Screen::Title) {
-        if (key == SDLK_UP) title_choice_ = (title_choice_ + 4) % 5;
-        else if (key == SDLK_DOWN) title_choice_ = (title_choice_ + 1) % 5;
+        if (key == SDLK_UP) title_choice_ = (title_choice_ + 5) % 6;
+        else if (key == SDLK_DOWN) title_choice_ = (title_choice_ + 1) % 6;
         else if (key == SDLK_RETURN || key == SDLK_KP_ENTER || key == SDLK_SPACE) {
             switch (title_choice_) {
                 case 0: screen_ = Screen::Select; break;
                 case 1: options_choice_ = 0; screen_ = Screen::Options; break;
-                case 2: screen_ = Screen::HighScore; break;
-                case 3: screen_ = Screen::Credits; break;
+                case 2: screen_ = Screen::Player; break;
+                case 3: screen_ = Screen::HighScore; break;
+                case 4: screen_ = Screen::Credits; break;
                 default: quit_requested_ = true; break;
             }
         } else if (key == SDLK_ESCAPE) quit_requested_ = true;
@@ -193,6 +206,37 @@ void Frontend::key(SDL_Keycode key) {
             intro_frame_ = 0;
             intro_elapsed_ = 0.0;
             screen_ = Screen::Intro;
+        }
+        return;
+    }
+    if (screen_==Screen::Player) {
+        const int count=(int)movie_rows_.size();
+        if (key==SDLK_ESCAPE) screen_=Screen::Title;
+        else if (key==SDLK_LEFT || key==SDLK_RIGHT) {
+            movie_category_=(movie_category_+(key==SDLK_LEFT ? 4:1))%5; filter_movies();
+        } else if (key==SDLK_TAB) {movie_resolution_=(movie_resolution_+1)%3; filter_movies();}
+        else if (count && (key==SDLK_UP || key==SDLK_DOWN))
+            movie_choice_=(movie_choice_+(key==SDLK_UP ? count-1:1))%count;
+        else if (count && (key==SDLK_PAGEUP || key==SDLK_PAGEDOWN))
+            movie_choice_=std::clamp(movie_choice_+(key==SDLK_PAGEUP ? -10:10),0,count-1);
+        else if (count && (key==SDLK_RETURN || key==SDLK_KP_ENTER || key==SDLK_SPACE)) {
+            const auto& selected=movies_[movie_rows_[movie_choice_]];
+            std::string next;
+            if (selected.kind=="ending") {
+                const std::string epilogue=selected.width==640 ? "END":"ENL";
+                for (const auto& movie : movies_) if (movie.name==epilogue) next=epilogue;
+            }
+            start_movie(selected.name,next);
+        }
+        return;
+    }
+    if (screen_==Screen::Playback) {
+        if (key==SDLK_ESCAPE) {stop_movie();screen_=Screen::Player;}
+        else if (key==SDLK_SPACE || key==SDLK_RETURN) movie_paused_=!movie_paused_;
+        else if (key==SDLK_LEFT || key==SDLK_RIGHT || key==SDLK_HOME || key==SDLK_END) {
+            movie_frame_=key==SDLK_HOME ? 0 : key==SDLK_END ? movie_->playable_frames-1 :
+                std::clamp(movie_frame_+(key==SDLK_LEFT ? -10:10),0,movie_->playable_frames-1);
+            movie_elapsed_=0;
         }
         return;
     }
@@ -262,6 +306,7 @@ void Frontend::key(SDL_Keycode key) {
 }
 
 double Frontend::intro_frame_duration() const {
+    if (intro_frame_<(int)intro_->frame_seconds.size()) return intro_->frame_seconds[intro_frame_];
     if (intro_frame_ == 0) return 1.5; // Legal card; the DOS palette faded in gradually.
     if (intro_frame_ < 12) return 0.22;
     if (intro_frame_ + 1 == static_cast<int>(intro_->frames.size())) return 0.8;
@@ -269,12 +314,24 @@ double Frontend::intro_frame_duration() const {
 }
 
 void Frontend::update(double elapsed_seconds) {
+    if (screen_==Screen::Playback && !movie_paused_) {
+        movie_elapsed_+=std::min(elapsed_seconds,0.25);
+        while (screen_==Screen::Playback && movie_elapsed_>=movie_frame_duration()) {
+            movie_elapsed_-=movie_frame_duration();
+            if (++movie_frame_>=movie_->playable_frames) {
+                const std::string next=movie_next_;
+                if (!next.empty()) start_movie(next);
+                else {stop_movie();screen_=Screen::Player;}
+            }
+        }
+        return;
+    }
     if (screen_ != Screen::Intro) return;
     intro_elapsed_ += std::min(elapsed_seconds, 0.25);
     while (screen_ == Screen::Intro && intro_elapsed_ >= intro_frame_duration()) {
         intro_elapsed_ -= intro_frame_duration();
         ++intro_frame_;
-        if (intro_frame_ >= static_cast<int>(intro_->frames.size())) screen_ = Screen::Title;
+        if (intro_frame_ >= intro_->playable_frames) screen_ = Screen::Title;
     }
 }
 
@@ -288,10 +345,83 @@ void Frontend::draw_background(SDL_Texture* texture) const {
 
 void Frontend::draw_title() const {
     draw_background(title_);
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 6; ++i) {
         const SDL_Color color = (i == title_choice_) ? gold : blue;
-        font_.draw(kTitleItems[i], 320, 250 + i * 29, color, 16, 21, true);
+        font_.draw(kTitleItems[i], 320, 235 + i * 27, color, 16, 21, true);
     }
+}
+
+void Frontend::filter_movies() {
+    movie_rows_.clear(); movie_choice_=0; movie_error_.clear();
+    for (int i=0;i<(int)movies_.size();++i) {
+        const auto& m=movies_[i];
+        if (movie_category_==1 && m.kind!="ending") continue;
+        if (movie_category_==2 && m.kind!="linked") continue;
+        if (movie_category_==3 && m.kind!="intro" && m.kind!="epilogue") continue;
+        if (movie_category_==4 && m.kind!="bonus") continue;
+        if (movie_resolution_==0 && m.width!=640 && m.kind!="intro") continue;
+        if (movie_resolution_==1 && m.width!=320) continue;
+        movie_rows_.push_back(i);
+    }
+}
+
+void Frontend::stop_movie() {
+    movie_=nullptr;
+    if (!movie_name_.empty() && movie_name_!="LLOGO") assets_.unload_video(movie_name_);
+    movie_name_.clear();movie_next_.clear();movie_paused_=false;
+}
+
+void Frontend::start_movie(const std::string& name, const std::string& next) {
+    // Copy arguments before releasing the previous movie's stored names.
+    const std::string chosen=name, following=next;
+    stop_movie();
+    try {
+        movie_=assets_.load_video(chosen,false);movie_name_=chosen;movie_next_=following;
+        movie_frame_=0;movie_elapsed_=0;movie_paused_=false;movie_error_.clear();screen_=Screen::Playback;
+    } catch (const std::exception& error) {
+        fprintf(stderr,"Movie %s: %s\n",chosen.c_str(),error.what());
+        movie_error_="VIDEO UNAVAILABLE - REIMPORT THE GAME";screen_=Screen::Player;
+    }
+}
+
+double Frontend::movie_frame_duration() const {
+    if (movie_frame_<(int)movie_->frame_seconds.size()) return movie_->frame_seconds[movie_frame_];
+    return 1./15.; // Compatibility with profiles imported before timing recovery.
+}
+
+void Frontend::draw_player() const {
+    font_.draw("PLAYER",320,14,gold,16,21,true);
+    font_.draw(kMovieCategories[movie_category_],30,50,cyan,11,16);
+    font_.draw(kMovieResolutions[movie_resolution_],475,50,cyan,11,16);
+    const int top=movie_choice_/10*10;
+    for (int row=top;row<std::min(top+10,(int)movie_rows_.size());++row) {
+        const auto& movie=movies_[movie_rows_[row]];
+        const auto color=row==movie_choice_ ? gold:blue;
+        font_.draw(row==movie_choice_ ? ">":"",16,84+(row-top)*25,color,9,15);
+        font_.draw(movie_label(movie),32,84+(row-top)*25,color,9,15);
+    }
+    if (movie_rows_.empty()) font_.draw("NO VIDEOS IN THIS PROFILE - IMPORT YOUR GAME",320,180,grey,11,16,true);
+    else {
+        const auto& movie=movies_[movie_rows_[movie_choice_]];
+        const std::string detail=movie.name+"  "+std::to_string(movie.width)+"X"+std::to_string(movie.height)+
+            "  "+std::to_string(movie.frame_count)+" FRAMES";
+        font_.draw(detail,320,342,cyan,10,14,true);
+    }
+    if (!movie_error_.empty()) font_.draw(movie_error_,320,320,red,10,14,true);
+    font_.draw("UP/DOWN SELECT  LEFT/RIGHT CATEGORY  TAB RESOLUTION",320,364,blue,9,13,true);
+    font_.draw("ENTER PLAY (ENDING + EPILOGUE)  PGUP/PGDN PAGE  ESC BACK",320,383,blue,9,13,true);
+}
+
+void Frontend::draw_movie() const {
+    if (!movie_) return;
+    const double scale=std::min(640./movie_->width,400./movie_->height);
+    const int width=(int)std::round(movie_->width*scale),height=(int)std::round(movie_->height*scale);
+    SDL_Rect target{(640-width)/2,(400-height)/2,width,height};
+    SDL_RenderCopy(renderer_,assets_.video_frame(movie_name_,movie_frame_),nullptr,&target);
+    const std::string title=movie_name_+"  "+std::to_string(movie_frame_+1)+"/"+std::to_string(movie_->playable_frames)+
+        (movie_paused_ ? "  PAUSED":"");
+    font_.draw(title,320,10,gold,10,14,true);
+    font_.draw("SPACE PAUSE  LEFT/RIGHT SEEK  HOME/END  ESC BACK",320,380,blue,9,13,true);
 }
 
 void Frontend::draw_keymapping() const {
@@ -493,4 +623,6 @@ void Frontend::render() const {
     else if (screen_ == Screen::HighScore) draw_highscore();
     else if (screen_ == Screen::Credits) draw_credits();
     else if (screen_ == Screen::Select) draw_select();
+    else if (screen_ == Screen::Player) draw_player();
+    else if (screen_ == Screen::Playback) draw_movie();
 }

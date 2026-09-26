@@ -15,6 +15,8 @@ import zipfile
 
 from disc_image import MAX_BYTES, MAX_FILES, extract_cue, extract_iso, safe_path
 from project_paths import ROOT
+from extract_ani import movie_format
+from extract_bonus_media import collect_media, export_media
 
 SLOTS = "01ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 MUSIC_EXTENSIONS = {".wav", ".mp3", ".flac", ".ogg", ".m4a"}
@@ -132,6 +134,11 @@ def import_source(source, dest, log):
     images = [p for p in files_under(source) if p.suffix.lower() in (".cue", ".iso")]
     if not images:
         # A supplemental disc may contain only movies/bonus material.
+        if any(p.suffix.upper()=='.FLC' or
+               (p.suffix.upper()=='.WAV' and p.parent.name.upper() in ('WAVS','VOICES','SPEECH'))
+               for p in files_under(source)):
+            record['kind']='media_folder'
+            return [], [], record
         if record["kind"] != "folder":
             return [], [], record
         raise ValueError("No complete game folder or ISO/CUE image found. The small installation folder alone is not enough.")
@@ -332,16 +339,28 @@ def run_import(sources, output, music=(), music_mode="auto", convert_assets=True
         elif {t["number"] for t in tracks} != set(range(2, 11)):
             warnings.append("Expected CD tracks 02–10 are incomplete or different; track numbers were preserved.")
         movies = sorted(n for n in names if n.endswith(".ANI"))
-        pending_movies = [n for n in movies if n not in ("LLOGO.ANI", "END.ANI", "ENL.ANI")]
+        pending_movies = []
+        for name in movies:
+            try:
+                movie_format(Path(name).stem)
+            except ValueError:
+                pending_movies.append(name)
         if pending_movies:
-            warnings.append(f"{len(pending_movies)} additional ANI files preserved; their conversion is not yet automated.")
-        else:
+            warnings.append(f"{len(pending_movies)} unrecognized ANI layouts preserved; analyse them before conversion.")
+        elif len(movies)<=3:
             warnings.append("Only the three known ANI files are present; longer cinematics may be missing.")
+        media_roots=[staging/'sources']+[Path(source).resolve() for source in sources if Path(source).is_dir()]
+        media_records=collect_media(media_roots,staging/'media')
+        media_report={"files":media_records,"voice_clips":0,"converted_bonus_movies":0}
         if convert_assets:
             convert(staging / "game", staging / "EXTRACTED", log)
+            if media_records:
+                media_report.update(export_media(staging/'media',staging/'EXTRACTED'))
+                warnings.extend(media_report.get('warnings',[]))
         report = {"schema": 1, "sources": source_records, "game_files": game_records,
                   "music": {**audio, "tracks": tracks}, "movies": movies,
                   "unconverted_movies": pending_movies, "assets_converted": convert_assets,
+                  "optional_media":media_report,
                   "robot_slots": [s for s in SLOTS + "23" if f"RBT{s}.ANL" in names],
                   "warnings": warnings}
         write_json(staging / "import-report.json", report)

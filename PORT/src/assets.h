@@ -23,7 +23,19 @@ struct AtlasBank {
 
 struct VideoBank {
     int width = 0, height = 0;
+    int playable_frames = 0;
+    std::vector<double> frame_seconds;
     std::vector<SDL_Texture*> frames;
+    std::vector<std::string> frame_paths;
+    int loaded_frame=-1;
+    bool streamed=false;
+};
+
+struct MovieInfo {
+    std::string name, kind, robot_slot;
+    int width=0, height=0, frame_count=0;
+    bool placeholder=false;
+    std::string title;
 };
 
 // MVS movement bank converted to JSON.
@@ -68,6 +80,7 @@ struct CombatData {
     std::vector<EffectScript> impacts;
     std::vector<std::vector<int>> particles;
     std::vector<int> super_strength, reactions;
+    std::vector<std::vector<int>> finishing_distance_hints;
 };
 
 class Assets {
@@ -75,7 +88,10 @@ public:
     Assets(SDL_Renderer* renderer, const std::string& extracted_dir);
     ~Assets();
     const AtlasBank* load_atlas(const std::string& bank);
-    const VideoBank* load_video(const std::string& name);
+    const VideoBank* load_video(const std::string& name, bool preload=true);
+    SDL_Texture* video_frame(const std::string& name, int index);
+    std::vector<MovieInfo> movie_catalog() const;
+    void unload_video(const std::string& name);
     SDL_Texture* load_ggf(const std::string& name);
     const MvsBank* load_mvs(const std::string& bank);
     const Cl2Bank* load_cl2(const std::string& robot_letter);

@@ -50,6 +50,41 @@ std::vector<int> Combat::finishers(const Fighter& fighter) const {
     return out;
 }
 
+int Combat::assisted_finishing_distance(const Fighter& fighter, const Fighter& victim, int target) const {
+    int fallback=100;
+    if (data_ && fighter.robot_id>=0 && fighter.robot_id<(int)data_->finishing_distance_hints.size()) {
+        const auto& hint=data_->finishing_distance_hints[fighter.robot_id];
+        if (hint.size()==2 && hint[0]!=-1 && hint[1]>=hint[0])
+            fallback=std::clamp((hint[0]+hint[1])/2-320,20,500);
+    }
+    if (!usable_finisher(fighter,target) || !fighter.cl2) return fallback;
+    Fighter attack=fighter, body=victim;
+    attack.x=0; attack.facing=1; attack.stop_vertical(); attack.force_move(target);
+    body.x=0; body.facing=-1; body.stop_vertical();
+    std::vector<Cl2Box> bodies; body.get_boxes(nullptr,&bodies);
+    const auto& move=fighter.mvs->moves[target];
+    if (attack.speed_level<0 || attack.speed_level>=(int)move.sequences.size()) return fallback;
+    int best=-1, distance=fallback, motion=0;
+    for (int i=0;i<(int)move.sequences[attack.speed_level].size();++i) {
+        if (move.sequences[attack.speed_level][i].end) break;
+        if (attack.speed_level<(int)move.movements.size() && i<(int)move.movements[attack.speed_level].size())
+            motion+=move.movements[attack.speed_level][i]*2;
+        attack.x=motion; attack.seq_pos=i;
+        std::vector<Cl2Box> attacks; attack.get_boxes(&attacks,nullptr);
+        for (const auto& a : attacks) {
+            // Fit the decisive signed death box, not the preliminary punch.
+            if (a.damage_or_type>-49 || a.damage_or_type<-59 || !(-a.damage_or_type&1)) continue;
+            for (const auto& b : bodies) {
+                if (std::min(a.y+a.h,b.y+b.h)<std::max(a.y,b.y)) continue;
+                const int candidate=std::clamp(a.x+a.w/2-b.x-b.w/2,20,500);
+                const int overlap=std::min(a.x+a.w,b.x+candidate+b.w)-std::max(a.x,b.x+candidate);
+                if (overlap>best) {best=overlap; distance=candidate;}
+            }
+        }
+    }
+    return distance;
+}
+
 void Combat::sample_attack_buttons(uint8_t a,uint8_t b) {
     const uint8_t buttons[]={a,b};
     for (int side=0;side<2;++side) {
@@ -211,9 +246,16 @@ void Combat::tick(Fighter& a, Fighter& b, uint16_t input_a, uint16_t input_b) {
                 auto& victim=*fighters[1-side];
                 f.stop_vertical(); victim.stop_vertical();
                 f.facing=f.x<=victim.x ? 1:-1; victim.facing=-f.facing;
-                f.x=std::clamp(victim.x-f.facing*100,40,600);
+                const int target=available[available.size()==1 ? 0:index];
+                const int distance=assisted_finishing_distance(f,victim,target);
+                f.x=victim.x-f.facing*distance;
+                // Move the pair together at an arena edge to preserve the gap.
+                const int shift=std::min(f.x,victim.x)<40 ? 40-std::min(f.x,victim.x) :
+                                std::max(f.x,victim.x)>600 ? 600-std::max(f.x,victim.x) : 0;
+                f.x+=shift; victim.x+=shift;
+                push_.fill(0);
                 f.hit_pause=0; f.discard_inputs(); inputs[side]=0;
-                f.force_move(available[available.size()==1 ? 0:index]);
+                f.force_move(target);
             }
         }
         f.step(inputs[side],fighters[1-side],finishing,slots(side));

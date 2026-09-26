@@ -48,7 +48,7 @@ A 14-byte record comprises one u32, three u8 values, three u16 values and one u8
 | `.CL2` | 52 | `CLL5` or `CLL6` magic; validated collision boxes in 28 fighter banks and other background banks (document 08). |
 | `.CTL` | 23 | Background scroll/animation scripts; see document 08. |
 | `.DAT` | 6 | CHRSET1–3 (3,456 bytes each), OPTIONS, SOUND (524 bytes), OPTW95. `SOUND.DAT` configures sound cards/drivers. |
-| `.ANI` | 3 in older copy; 105 in Director's Cut | LLOGO/END/ENL RLE/delta codec decoded, 161 frames exported. Older copy lacks long movies (`ENERGY.NFO`); Director's Cut supplies them, including `RQLINK.ANI`. See document 09. |
+| `.ANI` | 3 in older copy; 105 in Director's Cut | All supplied layouts converted: width-terminated initial RLE, VGA palette and delta rows. Native playable count is declared count minus two; movie counter is 25 Hz. Older copy lacks long movies (`ENERGY.NFO`). See documents 09 and 17. |
 | `.TXT` / `.FRA` / other languages | — | Readable game text with formatting tags. |
 | `.ISW`, `.BIN`, `.RAW` | One each | OPTIONS.ISW, BG.BIN, TESTD.RAW: still to analyze. |
 | `.RST` | 1 | STATE.RST: ASCII INI. |
@@ -76,6 +76,7 @@ A 14-byte record comprises one u32, three u8 values, three u16 values and one u8
 - [x] Convert MVS to JSON, MRW to PCM WAV and CL2 to JSON.
 - [ ] Finish unknown AIP/STS fields and MRS sequences.
 - [ ] Refine CTL scripts and contextual palette assignment for other ANR banks.
-- [ ] Export remaining ANR banks, CHRSET fonts and the additional Director's Cut ANI files.
+- [x] Convert all 105 supplied Director's Cut ANI files with recovered default timing; support optional original FLC movies.
+- [ ] Export remaining ANR banks and decode CHRSET fonts.
 
 Historical guesses remain in the journal for context; use the validated structures above for implementation.

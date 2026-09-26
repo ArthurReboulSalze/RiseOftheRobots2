@@ -1,6 +1,6 @@
 # 11 — Source imports and repository preparation
 
-Status: September 26, 2026. Code and documentation are published on GitHub. Game files, conversions and decompiler output are excluded. The root README gives public setup instructions.
+Status: September 27, 2026. The repository is published on GitHub; the latest local changes still require a separate publication. Game files, conversions and decompiler output are excluded. The root README gives public setup instructions.
 
 ## Editions and scope
 
@@ -13,7 +13,7 @@ Status: September 26, 2026. Code and documentation are published on GitHub. Game
 
 Director's Cut is the chosen source for **future extraction**, with all available game content retained. RBT2 and RBT3 add SHEEPMAN and BUNNYRABBIT. All 30 portraits and high-resolution robot banks are supported. These two extra robots have no RB4 banks or dedicated AG backgrounds on this disc; their own palettes cover the color indices used by their sprites.
 
-All 105 ANI files are imported. LLOGO, END and ENL currently become 161 exported frames; the other **102 ANI files** await further decoding and integration. A successful import does not mean every cinematic or game system is playable yet.
+All **105 ANI files** are now imported, converted and catalogued for PLAYER. The converter follows native geometry, frame limits and the 25 Hz movie counter. Optional original WAV/FLC sources produce separate voice/movie exports; all 70 inspected FLCs converted. A successful import does not mean campaign, movie audio or every cinematic callback is reproduced. See [document 17](17_finishings_voices_and_player.md).
 
 ## Import pipeline
 
@@ -21,7 +21,7 @@ All 105 ANI files are imported. LLOGO, END and ENL currently become 161 exported
 2. Archives and discs are read into a temporary directory. A CUE/BIN data track is read directly, without mounting or executing it. MODE1/2048, MODE1/2352 and MODE2/2352 Form 1 are supported. INDEX 00, INDEX 01 and synthetic PREGAP positions are handled separately. `TOOLS/cue_to_iso.py` can also copy that data track into an ISO9660 file for mounting in Windows; this ISO has no audio tracks.
 3. The game folder is copied into `game/` with uppercase names and SHA-256 hashes. Different editions are never merged. Originals are not modified. A minimal installed folder containing only configuration is insufficient; ambiguous names, escaping paths and links are rejected.
 4. Music is copied into `music/` and indexed. A folder or ZIP given with `--music` takes priority. Otherwise, the soundtrack from the disc containing the game is selected. Audio on a bonus disc does not replace the main soundtrack.
-5. The GGF, ANR, MVS/STS, CL2, MRW and known-ANI converters, UI font builder and gallery builder produce `EXTRACTED/`. The base robots' STS state tables are required and their gravity/flags accompany each exported MVS move. Atlas/MVS/CL2 relationships are checked for every robot.
+5. The GGF, ANR, MVS/STS, CL2, MRW and ANI converters, UI font builder and gallery builder produce `EXTRACTED/`. The base robots' STS state tables are required and their gravity/flags accompany each exported MVS move. Atlas/MVS/CL2 relationships are checked for every robot. Supplemental original WAV/FLC files supplied through additional sources are copied to `media/`; voice manifests and a combined movie catalogue are generated. Locally installed FFmpeg is required only for optional FLC conversion. Missing FFmpeg retains those originals and records a warning.
 6. The profile and report appear only after the pipeline succeeds. An existing profile is never overwritten. `--import-only` skips asset conversion while checking the files required by the port.
 
 The converter reports three incomplete GGF fragments, A6B/A6G/A6M, without failing the import: these fragments do not contain a complete usable image. Other source files remain in the private profile even if their formats have not yet been interpreted.
@@ -62,6 +62,8 @@ The LE loader handles fixups spanning page boundaries, the final page and select
 | Synthetic Python tests | Import/LE tests and nine image-codec tests pass without original game bytes |
 | Release build and CTest | Build and `fighter_frames` test pass |
 | C++ asset loaders with real private profiles | Logos, title, portraits and banks loaded for all 28 and then all 30 robots |
+| Updated ANI/FLC and PLAYER checks | 105 ANI + 70 optional FLC movies converted; both profiles check first/middle/last frames, bounded texture streaming, pause/seek and ending/epilogue playback |
+| Normal victory speech without bonus media | Synthetic runtime check loads robot sample 14 without a standalone voice manifest; user confirms Cyborg's base recording |
 | Checkout containing only Git-index files | Pinned dependencies downloaded and verified; build and tests passed without bundled game data |
 | Real physical CD | **Not yet tested:** no optical drive was available on the test machine |
 

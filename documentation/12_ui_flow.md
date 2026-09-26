@@ -9,6 +9,7 @@ The title uses the original RESURRECTION / RISE 2 artwork and a centered menu:
 ```text
 START
 OPTIONS
+PLAYER
 HIGH SCORE
 CREDITS
 QUIT
@@ -40,6 +41,14 @@ Up/down choose an entry, left/right choose a player, and Enter waits for a repla
 The current screen has a two-row grid of twenty visible portraits, red and blue player cursors, and larger selected portraits beneath it. Player 1 uses arrows; player 2 uses A/D. Enter starts the selected match. Continuing beyond the visible grid exposes the remaining robots, capped to the imported edition's 28 or 30 available banks.
 
 Names, portrait palettes and banks follow source order ABC…Z01, with 2/3 in Director's Cut. A is Cyborg and 0 is Surpressor; the previous two-position name rotation is corrected. Native unlock progression has not been reconstructed. The full hangar background, animated selection robots and exact original confirmation behavior remain presentation work.
+
+If original standalone name WAVs were imported as supplemental media, changing a selection speaks that robot's name. Victory announcements use the normal robot MRW sample 14, independently of supplemental WAVs. The standalone name location in base DOS data remains unconfirmed; see [document 17](17_finishings_voices_and_player.md).
+
+## Movie player
+
+**PLAYER** browses the profile's converted ANI and optional FLC movies. Up/down selects, Page Up/Down moves ten entries, left/right changes category, and Tab cycles high/low/both resolutions. Enter or Space plays. A robot ending queues END or ENL before returning to the browser. Source placeholder cards are explicitly labelled.
+
+During playback, Space or Enter pauses, left/right seeks ten frames, Home/End jumps to the first/final playable frame, and Escape returns. Frames retain their aspect ratio and recovered timing; long movies stream one texture at a time. Menu music pauses. Full campaign progression, original movie audio and ending text remain to integrate.
 
 ## Versus reference
 

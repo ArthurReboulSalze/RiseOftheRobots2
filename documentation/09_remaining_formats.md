@@ -28,6 +28,8 @@ The DOS SOUND QUALITY setting controls the mixer output rate. Its five levels re
 
 `FUN_3a792` indexes a loaded bank as `base + 2 + sample_index * 8`, then uses that entry's absolute offset and size. `FUN_150b4` loads a separate `R<slot>.MRS`/`R<slot>.MRW` pair for each selected fighter. A direct successful-hit path, `FUN_39996`, asks SOS for sample `15` from the attacker's selected bank (source bank number = attacker index + 1). Thus the port should play sample 15 from the attacker bank once for a completed collision, rather than choose a fixed R0 effect.
 
+Sample **14** carries the original victory announcement: the user identified RA_14 as “Cyborg win”, consistent with the post-round sequence-14 call. The runtime uses each winner's normal MRW bank without requiring supplemental media. RA_13 was confirmed to be a sound effect. Original optional standalone name WAVs are imported separately; their base DOS location remains unconfirmed. See [document 17](17_finishings_voices_and_player.md).
+
 `FUN_226cc` is a particle/effect helper, not the fighter animation-frame advance routine. Depending on its branch, it calls sample `3` from shared bank 0 or sample `15` from a player bank. Sample 3 therefore must not be fired for every rendered fighter frame. Exact byte comparisons show deliberately identical sample-15 WAVs in several different fighter banks, so the confirmed hit effect is not necessarily unique to every robot even though each robot has its own bank. In the original 28-fighter data, those shared groups are `0/I`, `A/B`, `D/L/Z`, `G/W`, `H/X`, `M/V`, `Q/U/Y`, and `R/S`; Director's Cut additionally has `K/3` and extends `R/S` to `R/S/2`. The other sample-15 effects are distinct.
 
 ## MRS: sample sequences
@@ -42,9 +44,13 @@ The header contains u16 channel count C and sequence count S, C u16 stream sizes
 
 ## ANI: cinematics and menus
 
-The original DOS copy contains only three ANI streams: `LLOGO` (39 frames at 320×200), `END` (61 at 640×400), and `ENL` (61 at 320×200). Each frame uses row-oriented RLE, a 768-byte six-bit palette, and later delta rows. All three decode with exact stream consumption. Their 161 images do not imply 161/15 seconds of video: the DOS player controls frame waits separately.
+The original DOS copy contains only three ANI streams: `LLOGO` (39 declared frames at 320×200), `END` (61 at 640×400), and `ENL` (61 at 320×200). They use initial row RLE, a 768-byte six-bit palette, and later delta rows. Initial rows terminate at their decoded width; the leading command-count byte is skipped, as in DOS. Both native players use declared count minus two playable frames. LLOGO retains all 39 images for inspection but plays 37; END and ENL export/play 59 each.
 
-`ENERGY.NFO` in the original installation explicitly says cinematics were removed. `RQLINK.ANI` is absent there. Director's Cut Disc 1 contains 105 ANI files; the additional 102 are retained by the importer but await decoding and sequence/timing analysis. Disc 2 supplies bonus material and is not needed for game content.
+`ENERGY.NFO` in the original installation explicitly says cinematics were removed. `RQLINK.ANI` is absent there. All **105 Director's Cut Disc 1 ANI files** now convert automatically, including high/low LINK and VICT variants. Six supplied files have a truncated terminal record beyond the native playable range; active-frame validation remains strict. Exact copies of original “No Animation Yet…” cards are labelled as source placeholders.
+
+The 100 Hz IRQ feeds a **25 Hz movie counter**, not a 100 Hz playback clock. Initial waits are 20 counter ticks for 11 LLOGO frames, one END/ENL frame, or six LINK/VICT frames. Ordinary waits are two ticks (12.5 fps) and the final hold is 25 ticks. `FUN_17e7d` plays a robot's VICT movie, then END and ending text. The PLAYER menu now exposes the movies and ending/epilogue sequence; campaign and movie-audio integration remain incomplete.
+
+The inspected optional bonus filesystem supplies 70 FLC movies and 77 WAV recordings. FLC conversion uses locally installed FFmpeg and preserves declared frame counts and header timing. These extras are not required for normal imports. [Document 17](17_finishings_voices_and_player.md) gives the decoder evidence, clock addresses, voice findings and remaining limits.
 
 ## Fonts
 
@@ -58,4 +64,4 @@ The original game supports CD audio and digital music. The user's rip has nine C
 
 ## Next reverse-engineering tasks
 
-Decode the 102 additional ANI files and their timing; finish MRS event timing and pitch; complete attack-strength and combo handling beyond the verified basic inputs; decode CHRSET fonts; and verify CDDA selection and digital-music playback against the DOS game.
+Finish MRS event timing and pitch; locate standalone selection speech in base DOS data; resolve native finishing-range indexing and remaining callbacks; reconstruct campaign/movie audio and ending text; decode CHRSET fonts; and verify CDDA selection and digital-music playback against the DOS game.

@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <filesystem>
 #include <chrono>
+#include <algorithm>
 
 int main(int argc, char** argv) {
     if (argc < 2 || argc > 3) {
@@ -74,6 +75,30 @@ int main(int argc, char** argv) {
             display.begin();menu.render();display.present(menu.settings().filter,true);capture("key_mapping");
             menu.key(SDLK_ESCAPE);
             if (menu.screen()!=Screen::Options) throw std::runtime_error("Key mapping must return to Options");
+            menu.key(SDLK_ESCAPE);menu.key(SDLK_DOWN);menu.key(SDLK_RETURN);
+            if (menu.screen()!=Screen::Player) throw std::runtime_error("Title must open Player");
+            display.begin();menu.render();display.present(DisplayFilter::Nearest,true);capture("player");
+            if (menu.movie_count()>0) {
+                menu.key(SDLK_RETURN);
+                if (menu.screen()!=Screen::Playback) throw std::runtime_error("Player must open the selected movie");
+                menu.update(.21);menu.key(SDLK_SPACE);
+                const int frame=menu.animation_frame();menu.update(.25);
+                if (!menu.movie_paused() || menu.animation_frame()!=frame) throw std::runtime_error("Movie pause must freeze time");
+                menu.key(SDLK_RIGHT);
+                if (menu.animation_frame()<=frame) throw std::runtime_error("Movie seeking must move forward");
+                display.begin();menu.render();display.present(DisplayFilter::Nearest,true);capture("player_playback");
+                menu.key(SDLK_ESCAPE);
+                // Endings must continue to the matching epilogue, then return.
+                menu.key(SDLK_RIGHT);menu.key(SDLK_RETURN);
+                if (menu.screen()==Screen::Playback) {
+                    const auto first=menu.playing_movie();
+                    bool epilogue=false;
+                    for (int i=0;i<1000 && menu.screen()==Screen::Playback;++i) {
+                        menu.update(.1);epilogue|=menu.playing_movie()=="END" || menu.playing_movie()=="ENL";
+                    }
+                    if (!epilogue || menu.screen()!=Screen::Player) throw std::runtime_error("Ending + epilogue series must finish cleanly");
+                }
+            }
         }
         {
             Frontend reload(renderer,assets,test_dir.string());
@@ -83,6 +108,22 @@ int main(int argc, char** argv) {
         }
         for (const char* file : {"font.png","port_options.json","rise2.cfg"}) std::filesystem::remove(test_dir/"ui"/file);
         std::filesystem::remove(test_dir/"ui");std::filesystem::remove(test_dir);
+        int movies_checked=0;
+        for (const auto& info : assets.movie_catalog()) {
+            const auto* movie=assets.load_video(info.name,false);
+            for (int frame : {0,movie->playable_frames/2,movie->playable_frames-1}) {
+                SDL_Texture* texture=assets.video_frame(info.name,frame);
+                int width=0,height=0;
+                if (!texture || SDL_QueryTexture(texture,nullptr,nullptr,&width,&height) ||
+                    width!=info.width || height!=info.height) throw std::runtime_error("Invalid movie frame: "+info.name);
+                if (movie->streamed && std::count_if(movie->frames.begin(),movie->frames.end(),
+                    [](SDL_Texture* frame) {return frame!=nullptr;})!=1)
+                    throw std::runtime_error("Streaming movie must retain only one frame: "+info.name);
+            }
+            if (info.name!="LLOGO") assets.unload_video(info.name);
+            ++movies_checked;
+        }
+        printf("%d movies checked at first/middle/last frames; streamed clips retain one texture.\n",movies_checked);
         int commands_checked=0, unsupported=0;
         frontend.render(); // intro
         frontend.key(SDLK_RETURN);

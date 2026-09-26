@@ -86,6 +86,12 @@ The callback at `0x3ae71` processes zero-delay events, dispatches samples throug
 
 The remaining work is to trace callback registration and its effective tick frequency, reproduce control/shadow-bank behavior and loops, then integrate a sequencer into the port. Imported CD tracks already play; MRS digital music is preserved and structurally identified, but is not yet rendered into complete tracks or played by the port.
 
+## Original announcer speech
+
+The base robot MRW banks contain victory announcements. The user identified `RA_14.wav` as “Cyborg win”, and confirmed `RA_13.wav` is a sound effect. Native post-round branches in `FUN_137ce` / `FUN_15403` request sequence 14 through `FUN_3c28c`; Cyborg's MRS sequence 14 selects sample 14 at normal rate. The runtime now announces the winner from `R<slot>_14.wav`, requiring no supplemental voice files.
+
+The inspected Director's Cut bonus material has 77 original WAVs, including standalone robot names at 44.1 kHz, 16-bit mono. Optional import support preserves them and supplies selection speech when available. Their presence does not establish that base DOS selection speech is absent: its standalone location remains unconfirmed. No sample-13 assignment or synthesized/chopped replacement is used. [Document 17](17_finishings_voices_and_player.md) records the mapping, importer and reserved speech channel.
+
 ## Reproduction
 
 ```powershell

@@ -2,6 +2,7 @@
 #include "json.hpp"
 #include "SDL_image.h"
 #include <cstdio>
+#include <algorithm>
 #include <stdexcept>
 
 using nlohmann::json;
@@ -31,6 +32,8 @@ const CombatData* Assets::load_combat() {
     m_combat.particles = data["particles"].get<std::vector<std::vector<int>>>();
     m_combat.super_strength = data["super_strength"].get<std::vector<int>>();
     m_combat.reactions = data["reactions"].get<std::vector<int>>();
+    if (data.contains("finishing_distance_hints"))
+        m_combat.finishing_distance_hints=data["finishing_distance_hints"].get<std::vector<std::vector<int>>>();
     m_combat_loaded = true;
     return &m_combat;
 }
@@ -53,24 +56,75 @@ SDL_Texture* Assets::load_ggf(const std::string& name) {
     return texture;
 }
 
-const VideoBank* Assets::load_video(const std::string& name) {
+const VideoBank* Assets::load_video(const std::string& name, bool preload) {
     auto it = m_videos.find(name);
     if (it != m_videos.end()) return &it->second;
     json manifest = json::parse(read_file(m_dir + "/video/" + name + "/manifest.json"));
     VideoBank video;
+    video.streamed=!preload;
     video.width = manifest["size"][0];
     video.height = manifest["size"][1];
+    video.playable_frames=manifest.value("playable_frame_count",(int)manifest["frames"].size());
+    if (manifest.contains("frame_ticks")) {
+        const double hz=manifest.value("timing_hz",100.0);
+        if (hz<=0) throw std::runtime_error("Invalid video clock: "+name);
+        for (double ticks : manifest["frame_ticks"])
+            video.frame_seconds.push_back(std::max(ticks,1.0)/hz);
+    }
     for (auto& frame : manifest["frames"]) {
         const std::string path = m_dir + "/video/" + name + "/" + frame.get<std::string>();
-        SDL_Texture* texture = IMG_LoadTexture(m_renderer, path.c_str());
-        if (!texture) {
+        video.frame_paths.push_back(path);
+        SDL_Texture* texture = preload ? IMG_LoadTexture(m_renderer, path.c_str()):nullptr;
+        if (preload && !texture) {
             for (SDL_Texture* loaded : video.frames) SDL_DestroyTexture(loaded);
             throw std::runtime_error("frame ANI introuvable: " + path);
         }
         video.frames.push_back(texture);
     }
+    video.playable_frames=std::min(video.playable_frames,(int)video.frames.size());
+    if (video.playable_frames<=0) throw std::runtime_error("Empty video: "+name);
     auto inserted = m_videos.emplace(name, std::move(video));
     return &inserted.first->second;
+}
+
+SDL_Texture* Assets::video_frame(const std::string& name, int index) {
+    auto it=m_videos.find(name);
+    if (it==m_videos.end() || index<0 || index>=(int)it->second.frames.size()) return nullptr;
+    auto& movie=it->second;
+    if (!movie.streamed) return movie.frames[index];
+    if (movie.loaded_frame==index) return movie.frames[index];
+    SDL_Texture* next=IMG_LoadTexture(m_renderer,movie.frame_paths[index].c_str());
+    if (!next) throw std::runtime_error("Missing video frame: "+movie.frame_paths[index]);
+    if (movie.loaded_frame>=0) {
+        SDL_DestroyTexture(movie.frames[movie.loaded_frame]);movie.frames[movie.loaded_frame]=nullptr;
+    }
+    movie.loaded_frame=index;movie.frames[index]=next;
+    return next;
+}
+
+void Assets::unload_video(const std::string& name) {
+    auto it=m_videos.find(name);
+    if (it==m_videos.end()) return;
+    for (SDL_Texture* frame : it->second.frames) SDL_DestroyTexture(frame);
+    m_videos.erase(it);
+}
+
+std::vector<MovieInfo> Assets::movie_catalog() const {
+    std::vector<MovieInfo> out;
+    FILE* fp=fopen((m_dir+"/video/catalog.json").c_str(),"rb");
+    if (!fp) return out;
+    fclose(fp);
+    const auto catalog=json::parse(read_file(m_dir+"/video/catalog.json"));
+    for (const auto& movie : catalog["movies"]) {
+        const std::string name=movie["name"];
+        // Names become file paths; do not allow an imported catalogue to escape.
+        if (name.empty() || name.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")!=std::string::npos)
+            throw std::runtime_error("Invalid movie name");
+        out.push_back({name,movie.value("kind",std::string("other")),movie.value("robot_slot",std::string()),
+            movie["size"][0],movie["size"][1],movie.value("playable_frame_count",movie.value("frame_count",0)),
+            movie.value("placeholder",false),movie.value("title",name)});
+    }
+    return out;
 }
 
 const AtlasBank* Assets::load_atlas(const std::string& bank) {

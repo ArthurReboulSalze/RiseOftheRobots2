@@ -1,5 +1,6 @@
 #define SDL_MAIN_HANDLED
 #include "audio.h"
+#include "announcer.h"
 #include "SDL.h"
 #include "SDL_mixer.h"
 
@@ -92,6 +93,39 @@ int main(int argc, char** argv) {
     require(Mix_PlayChannel(-1, chunk, 0) >= 0, Mix_GetError());
     Mix_HaltChannel(-1);
     Mix_FreeChunk(chunk);
+    // A normal profile must announce a victory from MRW sample 14 with
+    // no bonus manifest. Speech owns its reserved channel; effects use others.
+    const auto profile=path.parent_path()/path.stem();
+    std::filesystem::create_directories(profile/"audio/mrw/RA");
+    std::filesystem::copy_file(path,profile/"audio/mrw/RA/RA_14.wav");
+    Mix_ReserveChannels(1);
+    {
+        Announcer normal(profile.string());
+        require(normal.available(),"Base-game MRW announcements must not require bonus media");
+        normal.victory('A');normal.update();
+        require(Mix_Playing(0),"Native victory sample was not queued on the speech channel");
+        chunk=load_effect_wav(path.string().c_str());
+        require(chunk && Mix_PlayChannel(-1,chunk,0)>0,"Effects must not replace the announcer channel");
+        Mix_HaltChannel(-1);Mix_FreeChunk(chunk);
+        normal.select('A');normal.update();
+        require(!Mix_Playing(0),"A missing standalone name must not play an unrelated effect");
+    }
+    std::filesystem::create_directories(profile/"audio/voices");
+    std::filesystem::copy_file(path,profile/"audio/voices/CYBORG.WAV");
+    {
+        std::ofstream manifest(profile/"audio/voices/manifest.json");
+        manifest<<R"({"robots":{"A":{"name":"CYBORG.WAV"}},"events":{}})";
+    }
+    {
+        Announcer enriched(profile.string());enriched.select('A');enriched.update();
+        require(Mix_Playing(0),"Original standalone robot name was not queued");
+        enriched.clear();require(!Mix_Playing(0),"Interrupted speech must release its channel");
+        enriched.victory('A');enriched.update();
+        require(Mix_Playing(0),"Optional names must preserve native MRW victory playback");
+    }
+    for (const char* file : {"audio/mrw/RA/RA_14.wav","audio/voices/CYBORG.WAV","audio/voices/manifest.json"})
+        std::filesystem::remove(profile/file);
+    for (const char* dir : {"audio/mrw/RA","audio/mrw","audio/voices","audio",""}) std::filesystem::remove(profile/dir);
     std::filesystem::remove(path);
     for (int i = 1; i < argc; ++i) {
         chunk = load_effect_wav(argv[i], double(0x2000) / 0x7fff);

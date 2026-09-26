@@ -2,7 +2,7 @@
 
 ## Options and saved controls
 
-The title menu contains START, **OPTIONS**, HIGH SCORE, CREDITS and QUIT. OPTIONS opens the imported OPTIONS background and contains:
+The title menu contains START, **OPTIONS**, PLAYER, HIGH SCORE, CREDITS and QUIT. OPTIONS opens the imported OPTIONS background and contains:
 
 | Setting | Controls and behavior |
 |---|---|
@@ -25,7 +25,7 @@ The assist is a port option, not a recovered DOS rule. It operates only for the 
 | Two or three | Light punch or kick: first; medium punch or kick: second; heavy punch or kick: third, if available |
 | More than three | Punch light/medium/heavy, then kick light/medium/heavy, in order |
 
-A held knockout attack does not trigger the assist: release and press again. The assist grounds the fighters, faces them toward one another and places the winner at a demonstration distance before starting the source action. Original animations, MVS effects and signed CL2 victim reactions then run through the regular combat pipeline. The defeated player's buffered input is discarded. F1 shows available shortcuts; disabling the option restores command-only finishings.
+A held knockout attack does not trigger the assist: release and press again. The assist grounds the fighters, faces them toward one another and calculates placement from the selected finishing's signed death attack boxes and the victim's body boxes. It shifts both fighters together near a wall to preserve the gap. Original animations, MVS effects and signed CL2 victim reactions then run through the regular combat pipeline. The defeated player's buffered input is discarded. F1 shows available shortcuts; disabling the option restores command-only finishings. [Document 17](17_finishings_voices_and_player.md) records the Cyborg correction and the unresolved indexing in the native distance gate.
 
 Missing actions remain unavailable. Some native finishing callbacks, linked cinematics and DOS progression restrictions are still unimplemented; a shortcut does not make those presentations complete.
 

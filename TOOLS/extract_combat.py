@@ -47,6 +47,8 @@ def parse_tables(raw):
                 impacts=[sequence(p, 6) for p in read(0x62c66 + shift, '<4I')],
                 particles=[sequence(p, 2) for p in read(0x62702, '<16I')],
                 super_strength=list(read(0x62b0a + shift, '<30h' if shift else '<28h')),
+                finishing_distance_hints=[list(read(0x6279a + i*4, '<2h'))
+                                          for i in range(30 if shift else 28)],
                 reactions=list(read(0x62b48 + shift, '<4h')))
 
 

@@ -36,6 +36,7 @@ public:
     const std::array<std::array<Projectile,3>,2>& projectiles() const { return projectiles_; }
     bool usable_finisher(const Fighter& fighter, int target) const;
     std::vector<int> finishers(const Fighter& fighter) const;
+    int assisted_finishing_distance(const Fighter& fighter, const Fighter& victim, int target) const;
     void set_easy_finishings(bool enabled) { easy_finishings_=enabled; }
     // Raw configured attack buttons: punch light/medium/heavy, then kicks.
     void sample_attack_buttons(uint8_t a,uint8_t b);

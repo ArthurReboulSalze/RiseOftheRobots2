@@ -204,6 +204,15 @@ class Imports(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Different game editions"):
             self.run_case(self.game.parent)
 
+    def test_optional_media_folder_and_normal_game_without_it(self):
+        bonus=self.root/'bonus'
+        fake_wav(bonus/'WAVS/CYBORG.WAV')
+        report=run_import([self.game,bonus],self.root/'with-media',[],"auto",False,lambda *_:None)
+        self.assertEqual(report['optional_media']['files'][0]['name'],'CYBORG.WAV')
+        self.assertTrue((self.root/'with-media/media/WAVS/CYBORG.WAV').exists())
+        normal=self.run_case(self.game,'without-media')
+        self.assertEqual(normal['optional_media']['files'],[])
+
     def test_requested_unavailable_cd_fails(self):
         with self.assertRaisesRegex(ValueError, "no available data"):
             self.run_case(self.game, music_mode="cd")

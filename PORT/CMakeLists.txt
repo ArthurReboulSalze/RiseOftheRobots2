@@ -12,6 +12,7 @@ set(SDL2MIX_DIR ${TP}/SDL2_mixer-2.8.0)
 add_executable(rotr2
   src/main.cpp
   src/audio.cpp
+  src/announcer.cpp
   src/assets.cpp
   src/fighter.cpp
   src/combat.cpp
@@ -60,9 +61,9 @@ if(BUILD_TESTING)
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SDL2_DIR}/lib/x64/SDL2.dll $<TARGET_FILE_DIR:rotr2_combat_test>)
   add_test(NAME combat_rules COMMAND rotr2_combat_test)
 
-  add_executable(rotr2_audio_test tests/audio_test.cpp src/audio.cpp)
+  add_executable(rotr2_audio_test tests/audio_test.cpp src/audio.cpp src/announcer.cpp)
   target_include_directories(rotr2_audio_test PRIVATE
-    ${SDL2_DIR}/include ${SDL2MIX_DIR}/include src)
+    ${SDL2_DIR}/include ${SDL2MIX_DIR}/include ${TP} src)
   target_link_libraries(rotr2_audio_test PRIVATE
     ${SDL2_DIR}/lib/x64/SDL2.lib ${SDL2_DIR}/lib/x64/SDL2main.lib
     ${SDL2MIX_DIR}/lib/x64/SDL2_mixer.lib)

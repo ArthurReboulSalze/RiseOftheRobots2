@@ -2,6 +2,7 @@
 // Two animated high-resolution fighters (RBT atlases and MVS movement transitions).
 #include "assets.h"
 #include "audio.h"
+#include "announcer.h"
 #include "fighter.h"
 #include "combat.h"
 #include "frontend.h"
@@ -82,6 +83,9 @@ int main(int argc, char** argv) {
         // Audio : SDL_mixer (convertit automatiquement les echantillons, joue les MP3).
         Mix_Init(MIX_INIT_MP3 | MIX_INIT_OGG | MIX_INIT_FLAC);
         const bool audio_ok = Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 1024) == 0;
+        if (audio_ok) Mix_ReserveChannels(1);
+        Announcer announcer(assets_dir);
+        logf("original announcements: %s\n",announcer.available() ? "available":"absent from imported sources");
         int music_volume=-1,game_volume=-1;
         auto apply_options = [&]() {
             const auto& options=frontend.settings();
@@ -185,6 +189,7 @@ int main(int argc, char** argv) {
         };
 
         auto start_match = [&]() {
+            if (audio_ok) {announcer.clear();Mix_HaltChannel(-1);}
             auto configure = [&](Fighter& fighter, int player_index, int x, int facing) {
                 const char slot = frontend.player(player_index).slot;
                 // Resolution 640 uniquement (decision utilisateur) : banques RBT reduites
@@ -216,6 +221,7 @@ int main(int argc, char** argv) {
             combat.reset(); ai_clock = 0; move_list = false;
             load_arena();
             play_random_fight_music();
+            if (audio_ok) announcer.fight();
         };
 
         // Touches configurees (RISE2.CFG du port) : 10 entrees par joueur.
@@ -235,6 +241,9 @@ int main(int argc, char** argv) {
         const double counter_frequency = static_cast<double>(SDL_GetPerformanceFrequency());
         Uint64 previous_counter = SDL_GetPerformanceCounter();
         double accumulator = 0.0;
+        bool video_music_paused=false;
+        char announced_slots[2]={0,0};
+        Screen previous_screen=frontend.screen();
         while (run) {
             bool scene_changed=false;
             SDL_Event ev;
@@ -281,7 +290,25 @@ int main(int argc, char** argv) {
             const int intro_frame=frontend.animation_frame();
             const Screen old_screen=frontend.screen();
             frontend.update(elapsed);
+            if (audio_ok) {
+                const bool video=frontend.screen()==Screen::Playback;
+                if (video && !video_music_paused) {Mix_PauseMusic();video_music_paused=true;}
+                else if (!video && video_music_paused) {Mix_ResumeMusic();video_music_paused=false;}
+            }
             scene_changed|=intro_frame!=frontend.animation_frame() || old_screen!=frontend.screen();
+            if (audio_ok && frontend.screen()==Screen::Select) {
+                for (int side=0;side<2;++side) {
+                    const char slot=frontend.player(side).slot;
+                    if (previous_screen!=Screen::Select || slot!=announced_slots[side]) {
+                        announced_slots[side]=slot;
+                        // Announce the robot the user just moved to; entering
+                        // selection announces player one, without overlap.
+                        if (previous_screen==Screen::Select || side==0) announcer.select(slot);
+                    }
+                }
+            }
+            if (audio_ok && frontend.screen()==Screen::Playback && previous_screen!=Screen::Playback) announcer.clear();
+            previous_screen=frontend.screen();
             uint16_t in1 = 0, in2 = 0;
             if (frontend.screen() == Screen::Fight && !paused && !move_list) {
                 const Uint8* kb = SDL_GetKeyboardState(nullptr);
@@ -322,7 +349,10 @@ int main(int argc, char** argv) {
                     if (distance > 170) in2 = p2.x < p1.x ? IN_RIGHT : IN_LEFT;
                     else if (ai_clock % 60 < 12 && p2.flash == 0) in2 = IN_PUNCH;
                 }
+                const auto prior_phase=combat.phase();
                 combat.tick(p1,p2,in1,in2);
+                if (audio_ok && combat.phase()==RoundPhase::Ending && prior_phase!=RoundPhase::Ending && combat.winner()>=0)
+                    announcer.victory(frontend.player(combat.winner()).slot);
                 scene_changed=true;
                 for (const auto& hit : combat.hits()) {
                     if (audio_ok && snd[hit.attacker].samples[15])
@@ -331,6 +361,7 @@ int main(int argc, char** argv) {
                          hit.attacker+1,hit.damage,hit.blocked,hit.projectile,p1.health,p2.health);
                 }
             } else if (paused || move_list) accumulator = 0.0;
+            if (audio_ok) announcer.update();
 
             presentation.begin();
             if (frontend.screen() == Screen::Fight) {
@@ -463,6 +494,7 @@ int main(int argc, char** argv) {
             SDL_Delay(1);
         }
         Mix_HaltMusic();
+        Mix_HaltChannel(-1);
         clear_fighter_sounds(0);
         clear_fighter_sounds(1);
         if (menu_music) Mix_FreeMusic(menu_music);

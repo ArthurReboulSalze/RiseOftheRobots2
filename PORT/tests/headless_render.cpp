@@ -239,6 +239,35 @@ int main(int argc, char** argv) {
         check(started && death,easy ? "finishing facile reel : une touche et reaction CL2 de mort":
                                     "finishing reel : commande et reaction CL2 de mort");
         }
+        // Reproduce the reported Cyborg miss: his late frame 333 has a
+        // distant death box. Check the actual victim state, on both keyboards
+        // and at both walls, rather than merely checking that move 58 starts.
+        for (int winner : {0,1}) for (int direction : {1,-1}) for (bool wall : {false,true}) {
+            p1=Fighter{};p2=Fighter{};
+            Fighter& cyborg=winner==0 ? p1:p2;
+            Fighter& victim=winner==0 ? p2:p1;
+            cyborg.set_banks(cyborg_atlas,cyborg_moves);cyborg.cl2=assets.load_cl2("RA");cyborg.robot_id=0;
+            victim.set_banks(ab1,mv1);victim.cl2=cl1;victim.robot_id=26;victim.health=0;
+            victim.x=wall ? (direction>0 ? 60:580):320;
+            cyborg.x=direction>0 ? victim.x-10:victim.x+10;
+            cyborg.facing=direction;victim.facing=-direction;
+            cyborg.sprite_scale=156.0/cyborg_atlas->frames[1].rect_h;
+            victim.sprite_scale=156.0/ab1->frames[1].rect_h;
+            combat.reset();combat.set_easy_finishings(true);combat.tick(p1,p2,0,0);
+            const int distance=combat.assisted_finishing_distance(cyborg,victim,58);
+            combat.sample_attack_buttons(winner==0 ? 1:0,winner==1 ? 1:0);
+            bool death=false,started=false;
+            for (int tick=0;tick<210;++tick) {
+                combat.tick(p1,p2,0,0);started|=cyborg.move_id==58;death|=victim.move_id==59;
+                if (tick==15 && winner==0 && !wall) {
+                    SDL_SetRenderDrawColor(ren,0,0,0,255);SDL_RenderClear(ren);
+                    draw_fighter(p1);draw_fighter(p2);combat.render(ren,p1,p2,0);
+                    IMG_SavePNG(surface,(out_dir+"/cyborg_finishing_"+std::to_string(direction)+".png").c_str());
+                }
+            }
+            printf("Cyborg finishing: player=%d facing=%d wall=%d distance=%d\n",winner+1,direction,wall,distance);
+            check(started && death,"Cyborg : touche de finishing et veritable reaction de mort 59, meme pres du mur");
+        }
         SDL_DestroyTexture(arena_tex);
         if (arena) SDL_FreeSurface(arena);
         printf("       hits=%d ; vie p2 : %d -> %d\n", hits, health_before, first_health_after);

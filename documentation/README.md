@@ -1,6 +1,6 @@
 # Rise 2 research and port documentation
 
-This index describes the experimental Rise 2: Resurrection port. **Current state:** local folder/ZIP/ISO/BIN-CUE imports; 28 or 30 selectable fighters depending on edition; MVS, CL2 and MRW conversions; three ANI movies converted; C++/SDL2 port in progress.
+This index describes the experimental Rise 2: Resurrection port. **Current state:** local folder/ZIP/ISO/BIN-CUE imports; 28 or 30 selectable fighters depending on edition; MVS, CL2 and MRW conversions; all 105 supplied Director's Cut ANI movies converted; optional original WAV/FLC media; C++/SDL2 port with OPTIONS and PLAYER menus in progress.
 
 Director's Cut Disc 1 supplies the game, 105 ANI files and CD tracks 02–10. Disc 2 is optional. [Source imports](11_source_imports.md) explains the private data workflow; [the port handoff](10_port.md) covers implementation status and limits; [image decoding](07_image_decoding.md) records codec evidence. An imported profile's `EXTRACTED/index.html` is its local image gallery.
 
@@ -22,11 +22,12 @@ Director's Cut Disc 1 supplies the game, 105 ANI files and CD tracks 02–10. Di
 | [14_combat_inputs_and_jumps.md](14_combat_inputs_and_jumps.md) | DOS attack filtering, STS gravity, jump trajectory, landing, crossing and port regression checks |
 | [15_combat_commands_and_fx.md](15_combat_commands_and_fx.md) | Attack strengths, robot commands, original FX/projectiles, damage reactions and initial finishing integration |
 | [16_options_filters_and_fx.md](16_options_filters_and_fx.md) | Saved volumes, finishing shortcuts, retro filters, Cyborg palette and projectile placement corrections |
+| [17_finishings_voices_and_player.md](17_finishings_voices_and_player.md) | Cyborg finishing placement, native victory speech, ANI timing, optional FLC media and PLAYER controls |
 
 Working directories:
 
 - `SRC/` — original game copies; **never modify**, excluded from Git.
-- `LOCAL/<profile>/` — new private imports: `game/`, `music/`, `EXTRACTED/`, reports and optional analysis.
+- `LOCAL/<profile>/` — new private imports: `game/`, `music/`, optional `media/`, `EXTRACTED/`, reports and optional analysis.
 - `ANALYSIS/` — historical private analysis output, including Ghidra decompilation.
 - `TOOLS/` — Python parsers and Ghidra scripts.
 - `EXTRACTED/` — older private PNG/WAV/metadata export.

@@ -18,6 +18,8 @@ python -m venv .venv
 
 Add one or more sources in the import window. You can also add a separate music folder. Choose a different profile name for each edition: an existing profile is never overwritten.
 
+Original supplemental WAV/FLC media can be added as another source folder, archive or disc image. The importer keeps it separate from game banks. Optional FLC conversion uses a locally installed **FFmpeg**; normal game imports do not require it. No recordings or movies are downloaded.
+
 | What you have | What to select |
 |---|---|
 | A game folder | Select the folder containing the RBT banks, or its parent. An installed folder containing only configuration files is insufficient. |
@@ -66,6 +68,7 @@ LOCAL/my-game/                 # private, ignored by Git
   game/                       # normalized game files
   sources/                    # extracted discs/archives; bonuses separate
   music/                      # numbered CD tracks and manifest
+  media/                      # optional original WAV/FLC media
   EXTRACTED/                  # PNGs, atlases, WAVs, JSON and gallery
   settings.json
   import-report.json
@@ -87,9 +90,13 @@ The current flow shows the logos, title screen, character selection and an initi
 
 Open **OPTIONS** from the title menu to adjust music and game volume separately, configure **KEY MAPPING**, enable **EASY FINISHINGS**, or choose a display filter: original pixels, bilinear, Scale2x, Scale3x, xBR smoothing or a soft CRT effect. Settings are saved for the selected private profile. Arrow keys select and adjust; Enter changes or opens a setting; Escape returns.
 
-Combat uses the configured light, medium and heavy punch/kick keys. **F1** pauses and displays the selected robots' commands; **F2** switches player 2 between basic CPU sparring and its configured keyboard. After KO, enter an available finishing command, or press a configured attack key with easy finishings enabled. A robot with one available finishing accepts any of the six attack keys; multiple variants follow light, medium and heavy order. Enter after the result starts a rematch. See [options and FX corrections](documentation/16_options_filters_and_fx.md) for details.
+Combat uses the configured light, medium and heavy punch/kick keys. **F1** pauses and displays the selected robots' commands; **F2** switches player 2 between basic CPU sparring and its configured keyboard. After KO, enter an available finishing command, or release and press a configured attack key with easy finishings enabled. The assist positions fighters using the finishing's source collision data. A robot with one available finishing accepts any of the six attack keys; multiple variants follow light, medium and heavy order. Enter after the result starts a rematch. See [options and FX corrections](documentation/16_options_filters_and_fx.md) for details.
 
-The port remains under development: full DOS combat timing, linked grabs and some finishing callbacks are incomplete, some menu options are placeholders, and the original digital-music sequencer remains to implement. Original impact sprites, attached FX and scripted projectiles now run; see [combat commands and FX](documentation/15_combat_commands_and_fx.md). Imported CD tracks already play. Effects use filtered conversion to 44.1 kHz 16-bit stereo with the original impact gain; see the [verified DOS audio investigation](documentation/13_audio_investigation.md). Only `LLOGO`, `END` and `ENL` are automatically converted into video frames. Other ANI files and bonus content remain in the private profile for future work.
+Open **PLAYER** to browse imported movies: up/down selects, left/right changes category, Tab changes resolution, and Enter plays. During playback, Space pauses, left/right seeks, and Escape returns. A robot ending continues to the matching shared epilogue. All 105 Director's Cut ANI files are supported; optional original FLC movies are also supported. The player preserves recovered timing and streams long movies without preloading every image.
+
+Victory announcements use sample 14 from each robot's original MRW bank. Separately supplied original voice WAVs add standalone names at selection; their location in base DOS data is still under investigation. See [finishings, voices and PLAYER](documentation/17_finishings_voices_and_player.md).
+
+The port remains under development: full DOS combat timing, linked grabs, some finishing callbacks and campaign progression are incomplete. Movie music/cues and ending text are not yet reproduced, and the original digital-music sequencer remains to implement. Original impact sprites, attached FX and scripted projectiles now run; see [combat commands and FX](documentation/15_combat_commands_and_fx.md). Imported CD tracks already play. Effects use filtered conversion to 44.1 kHz 16-bit stereo with the original impact gain; see the [verified DOS audio investigation](documentation/13_audio_investigation.md).
 
 ## Extraction and reverse engineering
 
