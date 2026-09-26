@@ -22,7 +22,9 @@ An animation sequence consists of two-byte entries; `image = 2*b0 + (b1 & 1)` an
 
 MRW files contain unsigned 8-bit mono PCM. The silent midpoint is `0x80`. Each file starts with a u16 count and then `count` pairs of absolute u32 offset and u32 size. The original 69 banks yield 1,142 samples and account for approximately 99.8% of file bytes. For example, R0 entry 0 has offset `0x9a` and size 2,769. Director's Cut Disc 1 contains 71 banks and 1,179 entries, including the extra robots.
 
-The WAV exporter uses a base rate of 11,025 Hz. `FUN_3a792` accepts per-call playback parameters and passes the prepared sample to SOS, but the exact conversion of those parameters into a playback rate remains open; the previous simple 16.16-rate formula is not treated as established. The extracted samples were checked by listening; they are intelligible effects, unlike attempts to interpret MVS as PCM.
+The native base rate is 11,025 Hz. Assembly at `0x3a870` computes `(ECX * 11025) >> 16` into the SOS sample-rate field at `0x62db8`. EDX is volume, not pitch; EBX is the source bank. `FUN_39996` passes ECX = `0x10000` and EDX = `0x2000`, so its impact is played at 11,025 Hz and approximately one quarter of full volume. These results were reproduced by executing the original instructions for both supplied EXR builds with `TOOLS/verify_x86_audio.py`. See [the detailed audio investigation](13_audio_investigation.md).
+
+The DOS SOUND QUALITY setting controls the mixer output rate. Its five levels request 5,000 / 6,500 / 8,000 / 9,500 / 11,025 Hz in both the older executable and Director's Cut Disc 1. The 69 common MRW banks are byte-identical across the older folder, older ISO installation and Director's Cut. No separate 22.05 or 44.1 kHz effect banks were found on Disc 1. The port outputs 44.1 kHz 16-bit stereo and now uses a windowed-sinc filter to convert original effects. This improves conversion without adding information absent from the source.
 
 `FUN_3a792` indexes a loaded bank as `base + 2 + sample_index * 8`, then uses that entry's absolute offset and size. `FUN_150b4` loads a separate `R<slot>.MRS`/`R<slot>.MRW` pair for each selected fighter. A direct successful-hit path, `FUN_39996`, asks SOS for sample `15` from the attacker's selected bank (source bank number = attacker index + 1). Thus the port should play sample 15 from the attacker bank once for a completed collision, rather than choose a fixed R0 effect.
 
@@ -30,7 +32,9 @@ The WAV exporter uses a base rate of 11,025 Hz. `FUN_3a792` accepts per-call pla
 
 ## MRS: sample sequences
 
-The 68 MRS sidecars range from 48 to 21,156 bytes. `FUN_3be83` loads MRS sequences and their MRW bank; `FUN_3a6b0` places sequence data into `DAT_705bc`. Their header and stream reader indicate an HMI sequenced resource, but they are not proven to be a per-MVS-frame sound table. In `FUN_150b4`, player banks are loaded into slots 1 and 2 through `FUN_3c1b6`, while the sequence-playback initializer `FUN_3c1f0` follows the BGA or MGA–MGF background-bank load. The available evidence therefore treats MRS as the digital-music sequencer, not the source of fighter hit timing. The event timing and pitch conversion still need decoding. Preserve MRS when importing.
+The 68 MRS sidecars range from 48 to 21,156 bytes. `FUN_3be83` loads MRS sequences and their MRW bank; `FUN_3a6b0` places PCM banks into `DAT_705bc`. MRS is used for both background music and fighter sound sequences. The earlier restriction to music alone was incomplete: `FUN_23031` also reaches the sequence lookup/queue through `FUN_3c50e`, `FUN_3c2e9` and `FUN_3c395`. The direct successful-hit sample-15 call is a separate path, and MRS still must not be interpreted as a sound entry for every MVS animation frame.
+
+The header contains u16 channel count C and sequence count S, C u16 stream sizes, C u16 instrument selectors, then three C×S u16 tables: stream offsets, initial delays and trigger identifiers. Streams begin at `4 + C*(4 + 6*S)`. Events contain a u16 delay followed by a byte opcode/note and byte volume/control argument, with special end and loop markers. Instrument selector 0 uses the event byte as a sample index at normal rate; other selectors use sample `selector + 7` and a note-rate table, where note 84 has multiplier `0x10000`. Full clock registration, control/loop behavior and runtime playback remain to implement. Preserve MRS when importing; details and addresses are in [document 13](13_audio_investigation.md).
 
 ## SOUND.DAT: audio driver configuration
 
@@ -50,7 +54,7 @@ The original DOS copy contains only three ANI streams: `LLOGO` (39 frames at 320
 
 The original game supports CD audio and digital music. The user's rip has nine CDDA tracks numbered 02–10; track 01 is data. The MSCDEX wrappers at `0x433e6/0x43410/0x43445/0x43564` are called through HMI SOS code at `0x40718/0x40b7b/0x40d58`. Track 02 as title music and 03–10 as combat music are hypotheses, not yet confirmed in play.
 
-`README.FRA` and `OPTIONS.TXT` document `DIGITAL MUSIC` and `CD STREAMED MUSIC`. `FUN_150b4` uses `DAT_6639c` to select 0 = ambience, 1 = digital music, 2 = CD audio. The initial digital name is `BGA.MRW` at `0x50863`; digital mode changes the prefix to M and chooses A + arena modulo 6, giving `MGA` through `MGF`. `FUN_3c17c` calls `FUN_3be83` to load MRS/MRW. There is no evidence of MID/HMI/HMP/XMI music files. The importer records the available mode; music playback in the port is still pending.
+`README.FRA` and `OPTIONS.TXT` document `DIGITAL MUSIC` and `CD STREAMED MUSIC`. `FUN_150b4` uses `DAT_6639c` to select 0 = ambience, 1 = digital music, 2 = CD audio. The initial digital name is `BGA.MRW` at `0x50863`; digital mode changes the prefix to M and chooses A + arena modulo 6, giving `MGA` through `MGF`. `FUN_3c17c` calls `FUN_3be83` to load MRS/MRW. There is no evidence of MID/HMI/HMP/XMI music files. Imported CD tracks already play in the port; the MRS digital-music sequencer remains pending.
 
 ## Next reverse-engineering tasks
 

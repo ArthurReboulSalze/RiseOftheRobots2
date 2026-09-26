@@ -1,6 +1,6 @@
 # 11 — Source imports and repository preparation
 
-Status: September 23, 2026. The repository is **local**, with no remote or GitHub publication. Game files, conversions and decompiler output are excluded. The root README gives public setup instructions.
+Status: September 26, 2026. Code and documentation are published on GitHub. Game files, conversions and decompiler output are excluded. The root README gives public setup instructions.
 
 ## Editions and scope
 
@@ -65,7 +65,7 @@ The LE loader handles fixups spanning page boundaries, the final page and select
 | Checkout containing only Git-index files | Pinned dependencies downloaded and verified; build and tests passed without bundled game data |
 | Real physical CD | **Not yet tested:** no optical drive was available on the test machine |
 
-Synthetic fixtures contain no original game data. Test profiles and reports stay in `LOCAL/`. The ISO mounted by the user confirms CDFS drive detection and file copying through the virtual drive. It cannot validate CDDA from a mixed-mode disc or a real optical reader. Local validation used Python 3.14.5; the CI matrix for 3.12 and 3.14 will run after publication. The Tkinter window initialized without error, though this does not replace user testing of every button.
+Synthetic fixtures contain no original game data. Test profiles and reports stay in `LOCAL/`. The ISO mounted by the user confirms CDFS drive detection and file copying through the virtual drive. It cannot validate CDDA from a mixed-mode disc or a real optical reader. Local validation used Python 3.14.5; the published CI matrix for 3.12 and 3.14 passes, including a clean Release build. The Tkinter window initialized without error, though this does not replace user testing of every button.
 
 The physical-drive path uses Windows TOC/CDDA read calls, checks read lengths and retries errors up to three times. Simulated tests do not replace real disc and hardware testing; this is not a secure ripper with jitter correction or AccurateRip matching. To test CDDA in a virtual drive, mount the original CUE/BIN in a drive that exposes its audio tracks. A data-only ISO is sufficient to test detection and data copying; a missing audio TOC does not block that import and is reported.
 
@@ -87,6 +87,6 @@ python TOOLS/audit_repo.py --staged
 
 `audit_repo.py` checks the complete Git index for allowed paths, UTF-8 text, binary files and some secret/embedded-media patterns. The sole binary exception is the project banner, allowed only at its exact SHA-256. This complements manual inspection; it is not a universal secret detector or legal analysis. Windows dependencies are fetched from their official projects at pinned versions with SHA-256 verification. The importer does not execute the DOS binaries. Decompilation files remain private.
 
-Our code and documentation use the [MIT license](../LICENSE), with the collective notice "Rise 2 Port contributors." The license does not cover original game data. Before GitHub publication, test a real physical CD and review the index. No remote repository has been created at this stage.
+Our code and documentation use the [MIT license](../LICENSE), with the collective notice "Rise 2 Port contributors." The license does not cover original game data. The public repository contains the reviewed code/documentation index. Real physical-CD testing remains pending; the tested CUE/BIN and virtual-drive imports are documented above.
 
 Technical references: [pycdlib](https://clalancette.github.io/pycdlib/pycdlib-api.html), [Windows RAW_READ_INFO](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntddcdrm/ns-ntddcdrm-__raw_read_info), [Windows CDDA read](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntddcdrm/ni-ntddcdrm-ioctl_cdrom_raw_read).

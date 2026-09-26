@@ -1,7 +1,8 @@
 # Extract audio from MRW banks (verified through FUN_3a792 and empirical span coverage):
 #   [u16 count][count x (u32 offset, u32 size)][unsigned 8-bit mono PCM, 11025 Hz base]
-# Shared samples (same offset and size) are deduplicated. SOS accepts per-call
-# playback parameters, but their exact conversion to a rate is still under analysis.
+# Shared samples have the same offset and size, but every directory entry is exported.
+# FUN_3a792 uses ECX as a 16.16 rate multiplier: (ECX * 11025) >> 16.
+# EDX is volume, not pitch. The hit path uses ECX=0x10000 (normal rate).
 # Outputs: EXTRACTED/audio/mrw/<bank>/<bank>_<i>.wav and EXTRACTED/data/mrw_audio.json.
 import argparse
 import struct, os, json, wave

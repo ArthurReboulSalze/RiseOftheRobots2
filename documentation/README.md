@@ -17,6 +17,7 @@ Director's Cut Disc 1 supplies the game, 105 ANI files and CD tracks 02–10. Di
 | [09_remaining_formats.md](09_remaining_formats.md) | MRS/CHRSET, audio modes and additional ANI |
 | [10_port.md](10_port.md) | Build, architecture, current behavior and remaining work |
 | [11_source_imports.md](11_source_imports.md) | Private sources, edition handling, audio tracks and checks |
+| [13_audio_investigation.md](13_audio_investigation.md) | Verified DOS quality settings, SOS parameters, modern conversion and MRS structure |
 
 Working directories:
 

@@ -1,6 +1,7 @@
 // Rise 2 port skeleton: SDL window 1280x800 (logical 640x400), 15 Hz simulation,
 // Two animated high-resolution fighters (RBT atlases and MVS movement transitions).
 #include "assets.h"
+#include "audio.h"
 #include "fighter.h"
 #include "frontend.h"
 #include "SDL.h"
@@ -98,8 +99,15 @@ int main(int argc, char** argv) {
         // Audio : SDL_mixer (convertit automatiquement les echantillons, joue les MP3).
         Mix_Init(MIX_INIT_MP3 | MIX_INIT_OGG | MIX_INIT_FLAC);
         const bool audio_ok = Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 1024) == 0;
-        logf("audio mixer : %s (%s)\n", audio_ok ? "OK" : "ECHEC",
-             audio_ok ? "44100 stereo" : Mix_GetError());
+        if (audio_ok) {
+            int rate = 0, channels = 0;
+            Uint16 format = 0;
+            Mix_QuerySpec(&rate, &format, &channels);
+            logf("audio mixer : OK (%d Hz, %d bits, %d channels); effects: sinc conversion\n",
+                 rate, SDL_AUDIO_BITSIZE(format), channels);
+        } else {
+            logf("audio mixer : ECHEC (%s)\n", Mix_GetError());
+        }
         // Each fighter has an independent R<slot>.MRW bank.  The direct-hit
         // path uses sample 15 from the attacker's bank (FUN_39996).
         struct FighterSounds { Mix_Chunk* samples[24] = {}; };
@@ -116,17 +124,18 @@ int main(int argc, char** argv) {
             clear_fighter_sounds(player_index);
             for (int i = 0; i < 24; ++i) {
                 if (!audio_ok) break;
-                // The importer produces these original 11,025 Hz WAVs. SDL_mixer
-                // converts them to the 44.1 kHz output device as it loads them.
+                // Original 11,025 Hz PCM is converted with a windowed-sinc filter.
                 const std::string path = assets_dir + "/audio/mrw/R" + slot +
                                          "/R" + slot + "_" +
                                          (i < 10 ? "0" : "") + std::to_string(i) + ".wav";
-                snd[player_index].samples[i] = Mix_LoadWAV(path.c_str());
+                // FUN_39996: EDX=0x2000 is volume; ECX=0x10000 is normal rate.
+                const double gain = i == 15 ? double(0x2000) / 0x7fff : 1.0;
+                snd[player_index].samples[i] = load_effect_wav(path.c_str(), gain);
             }
             int loaded = 0;
             for (int i = 0; i < 24; ++i) if (snd[player_index].samples[i]) ++loaded;
             logf("sons joueur %d (%c) : %d/24 ; impact[15]=%s\n", player_index + 1, slot,
-                 loaded, snd[player_index].samples[15] ? "OK" : "absent");
+                 loaded, snd[player_index].samples[15] ? "OK (sinc, gain 25%)" : "absent");
         };
         // Music lives beside a normal imported profile (../music/02.mp3, etc.).
         // Keep the older EXTRACTED/audio/cd location as a fallback for existing local installs.

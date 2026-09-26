@@ -138,4 +138,4 @@ python TOOLS/exr_decompile_at.py <hex-address>
 python TOOLS/exr_disasm_fn.py <hex-address>
 ```
 
-The reverse call graph is `ANALYSIS/exr_callgraph.txt` (callee → callers). Remaining targets include full input-bit mapping, MRS triggers/pitch, AI behavior, round timer, exact movement speed, and visual validation of CL2 box placement.
+The reverse call graph is `ANALYSIS/exr_callgraph.txt` (callee → callers). Remaining targets include full input-bit mapping, MRS clock/control behavior and integration, AI behavior, round timer, exact movement speed, and visual validation of CL2 box placement. MRS header/event layout, SOS register parameters and sound-quality settings are now documented in [the audio investigation](13_audio_investigation.md).

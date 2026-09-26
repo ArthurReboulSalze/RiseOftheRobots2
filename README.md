@@ -85,7 +85,7 @@ ctest --test-dir PORT/build -C Release --output-on-failure
 
 The current flow shows the logos, title screen, character selection and an initial fight. Enter confirms and Escape goes back. At selection, the arrow keys control player 1 and A/D control player 2. In combat, player 1 uses arrows + J/K and player 2 uses W/A/S/D + I/O. The older edition has 28 robots; Director's Cut adds two more.
 
-The port remains under development: controls and combat are incomplete, some menu options are placeholders, and music still needs to be connected. Only `LLOGO`, `END` and `ENL` are automatically converted into video frames. Other ANI files and bonus content remain in the private profile for future work.
+The port remains under development: controls and combat are incomplete, some menu options are placeholders, and the original digital-music sequencer remains to implement. Imported CD tracks already play. Effects use filtered conversion to 44.1 kHz 16-bit stereo with the original impact gain; see the [verified DOS audio investigation](documentation/13_audio_investigation.md). Only `LLOGO`, `END` and `ENL` are automatically converted into video frames. Other ANI files and bonus content remain in the private profile for future work.
 
 ## Extraction and reverse engineering
 

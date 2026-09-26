@@ -2,6 +2,14 @@
 
 This is a chronological research log. Early interpretations are preserved here as history; documents 05, 07, 08, 09, and 10 describe the corrected current understanding. In particular, early claims that MVS held sound and MRW held video were disproved. The French originals remain in the local Git history; this public version records their findings in English.
 
+## Session 27 — 2026-09-26: sound-quality verification and clean builds
+
+Both supplied DOS executables were checked in Ghidra and by executing their original audio instructions with Unicorn. The five SOUND QUALITY requests are 5,000, 6,500, 8,000, 9,500 and 11,025 Hz, with eight-bit mono format. All 69 common MRW banks are unchanged in Director's Cut Disc 1; no alternative high-resolution fighter bank was found in its complete data filesystem. The exact sample call convention is EAX=sample, EDX=volume, EBX=bank, ECX=16.16 rate. Thus direct-hit EDX `0x2000` is approximately 25% gain; ECX `0x10000` gives 11,025 Hz. The earlier session-21 register interpretation was wrong.
+
+The port's effects now use a 32-tap windowed-sinc conversion to the output device and the original impact gain, without changing exported WAVs. Synthetic C++ checks cover waveform rate/level, spectral images, stereo, gain and actual dummy-device playback. `TOOLS/verify_x86_audio.py` preserves a reproducible check against both EXR builds. MRS layout and note/volume interpretation were refined, and fighter sequence use was confirmed; its callback clock/control behavior and runtime music implementation remain open. See document 13.
+
+The GitHub failure was a missing clean-build dependency: SDL_mixer existed locally but was omitted from `bootstrap_port.py`. Its official 2.8.0 archive and SHA-256 were added. The ensuing GitHub run passed both Python 3.12 and 3.14, including the Release build and CTest. No original game assets or generated media were committed.
+
 ## Session 26 — 2026-09-26: correcting fighter-effect attribution
 
 An audio audit corrected the previous attribution of `FUN_226cc`. It writes the particle/effect state at `DAT_6852c`; it is not called once for every fighter animation frame. Its branches request either sample 3 from shared source bank 0 or sample 15 from a player bank. The latter is contextual particle audio, not evidence that every movement should play a whoosh. The port therefore removed the synthetic per-frame sample-3 callback.
