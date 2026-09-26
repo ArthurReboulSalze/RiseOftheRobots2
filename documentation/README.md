@@ -18,7 +18,7 @@ Director's Cut Disc 1 supplies the game, 105 ANI files and CD tracks 02–10. Di
 | [10_port.md](10_port.md) | Build, architecture, current behavior and remaining work |
 | [11_source_imports.md](11_source_imports.md) | Private sources, edition handling, audio tracks and checks |
 | [13_audio_investigation.md](13_audio_investigation.md) | Verified DOS quality settings, SOS parameters, modern conversion and MRS structure |
-| [14_combat_inputs_and_jumps.md](14_combat_inputs_and_jumps.md) | DOS attack filtering, STS gravity, jump trajectory, landing and port regression checks |
+| [14_combat_inputs_and_jumps.md](14_combat_inputs_and_jumps.md) | DOS attack filtering, STS gravity, jump trajectory, landing, crossing and port regression checks |
 
 Working directories:
 

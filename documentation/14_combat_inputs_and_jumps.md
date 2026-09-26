@@ -1,6 +1,6 @@
-# 14 — Attack inputs and jump physics
+# 14 — Attack inputs, jump physics and crossing
 
-This investigation fixes held attacks repeating and jump animations playing without vertical movement. Addresses below belong to the older DOS EXR loaded at `0x10000`, SHA-256 `213ba86c2292cb3203f87826c030fbdb9d4c77c3a8c27d69fce230a53dc4241b`. Ghidra decompilation was checked against assembly; `TOOLS/verify_x86_fighter.py` independently executes the original input and vertical-physics instructions using the user's private executable.
+This investigation fixes held attacks repeating, jump animations playing without vertical movement, and repeated direction changes when crossing an opponent. Addresses below belong to the older DOS EXR loaded at `0x10000`, SHA-256 `213ba86c2292cb3203f87826c030fbdb9d4c77c3a8c27d69fce230a53dc4241b`. Ghidra decompilation was checked against assembly; `TOOLS/verify_x86_fighter.py` independently executes the original input, vertical-physics and crossing instructions using the user's private executable.
 
 ## Physical buttons and MVS masks
 
@@ -84,8 +84,27 @@ For RBTF movement 32, the impulse byte is `0xed` (-19), the STS gravity byte `0x
 
 The port's synthetic fighter test checks that measured trajectory, airborne collision offsets and lack of a second impulse during an air attack. It also checks held attacks, release/repress, switching attack buttons, a tap sampled between simulation ticks, facing reversal and no repeated jump when up stays held. Single-press jump behavior is an explicit port input rule; the DOS builder itself leaves up held.
 
+## Crossing and orientation
+
+The earlier port changed facing both before and after motion, without changing the movement state. Crossing during forward jump 35 therefore flipped the sign of its displacement, sent the fighter back across the opponent, and flipped it again on the next tick. The visible mirroring and horizontal oscillation had the same cause.
+
+`FUN_2163a` calls `FUN_25615` once at the beginning of the combat tick. In normal combat, the high word of `DAT_703b2` is -1. The routine permits turning in movement IDs `0, 2, 3, 6, 16, 18, 22, 26, 32, 33, 34, 35, 60, 61, 62, 74, 75, 76, 77, 79`; ordinary standing and airborne attacks keep their orientation until completion. When an eligible fighter crosses:
+
+| Current movement | DOS turning behavior |
+|---|---|
+| `34`, `35` | Swap backward/forward jumps `34↔35` together with facing |
+| `32`, `75` | Change facing without replacing the movement |
+| `16` | Enter crouching turn `69` (`0x45`) |
+| Other eligible states | Enter standing turn `68` (`0x44`) |
+
+For paired jumps, `FUN_26321` only clamps the current sequence frame to the target sequence's last visible frame when necessary. It does **not** restart the animation. The port preserves sequence progress, vertical velocity, fractional displacement, movement initialization and the hit latch when exchanging 34/35. The opposite signed horizontal streams preserve travel in screen coordinates after facing changes.
+
+At equal X, the DOS routine flips player 0 only when both fighters are exactly at ground Y and face the same direction. Airborne equality leaves facing alone. Both the interactive fight and headless simulation now share these rules and apply them only before inputs and motion.
+
+`TOOLS/verify_x86_fighter.py` executes the original `FUN_25615` and `FUN_26321` with a relocated private RBTF bank. Sixteen cases cover both directions, standing/crouching turns, locked attacks, neutral jumps and paired jumps, including an overlong frame index. The observed state, facing, frame, Y and vertical velocity match the documented behavior. Additional linked-state pairs `26↔33` and `76↔77` belong to a different DOS link mode; they are not applied unconditionally. The original pushback override and linked combat mode remain unported.
+
 ## Verification and limits
 
-The Release build and both CTest checks passed. The private 30-robot Director's Cut profile passed the real C++ loaders and 100-tick held punch/kick and supported-jump checks for every robot. The headless fight verifies two held attack presses produce two hits, and RBTF rises then lands while up remains held. Python import/LE/STS fixtures contain only synthetic data.
+The Release build and both CTest checks passed. Synthetic fighter checks cover ground crossing, both diagonal-jump directions, unchanged jump trajectories, locked attacks, frame clamping and stable orientation at equal X. The private 30-robot Director's Cut profile passed the real C++ loaders, held punch/kick checks and, for robots with supported jumps, diagonal crossing in both directions followed by landing. The headless fight verifies two held attack presses produce two hits, and RBTF rises then lands while up remains held. Python import/LE/STS fixtures contain only synthetic data.
 
 The simulation remains at the user-approved 15 Hz. The DOS trajectory arithmetic is verified; exact original frame pacing, move strength, combo rules, hitstun, push boxes and gameplay feel still need direct DOS comparison and playtesting. No game bytes, images, PCM, Ghidra outputs or generated profiles are included in Git.

@@ -58,4 +58,9 @@ private:
     bool move_started = false;
     void enter_move(int target, int first_frame = 0);
     void update_vertical();
+    void turn_to(int direction);
+    friend void update_facing(Fighter& a, Fighter& b);
 };
+
+// FUN_25615: update once at the start of the combat tick, before inputs/motion.
+void update_facing(Fighter& a, Fighter& b);

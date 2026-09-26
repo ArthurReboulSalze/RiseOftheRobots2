@@ -16,13 +16,6 @@ static int logical_w = 640, logical_h = 400;
 static int ground_y = 312;
 static int arena_min = 40, arena_max = 600;
 
-static void update_facing(Fighter& a, Fighter& b) {
-    if (a.x < b.x) a.facing = 1;
-    else if (a.x > b.x) a.facing = -1;
-    if (b.x < a.x) b.facing = 1;
-    else if (b.x > a.x) b.facing = -1;
-}
-
 static uint16_t horizontal_input(bool left, bool right) {
     if (left == right) return 0;
     return right ? IN_RIGHT : IN_LEFT;
@@ -164,7 +157,6 @@ int main(int argc, char** argv) {
             min_jump_y = SDL_min(min_jump_y, p2.y);
             apply_movement(p1);
             apply_movement(p2);
-            update_facing(p1, p2);
 
             std::vector<Cl2Box> att1, bod2;
             p1.get_boxes(&att1, nullptr);

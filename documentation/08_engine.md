@@ -87,7 +87,7 @@ Important runtime tables: `DAT_685cc/685d4` are relocated MVS movement pointers;
 
 Scripted interruption uses `(state & 0xf) < 10` and additional state checks, subject to STS byte +6 bit `0x20`. States above `0x4f` receive special defense handling. Ordinary transition tables are also evaluated separately.
 
-`FUN_25615` faces player 0 right and player 1 left when `x0 < x1`, reversing them when `x0 > x1`. Facing changes apply only to a listed subset of states: 0, 2, 3, 6, 0x10, 0x12, 0x16, 0x1a, 0x20–0x23, 0x3c–0x3e, 0x4a–0x4d, and 0x4f. Paired states include `0x22↔0x23`, `0x4c↔0x4d`, and `0x1a↔0x21`; `FUN_26321` restarts their animation. Turning uses `0x10→0x45` and other transitions to `0x44`.
+`FUN_2163a` calls `FUN_25615` once before inputs and motion. It faces player 0 right and player 1 left when `x0 < x1`, reversing them when `x0 > x1`. Facing changes apply only to a listed subset of states: 0, 2, 3, 6, 0x10, 0x12, 0x16, 0x1a, 0x20–0x23, 0x3c–0x3e, 0x4a–0x4d, and 0x4f, or when the original pushback field permits an override. Ordinary attacks keep their orientation. In normal combat (link mode -1), turning exchanges diagonal jumps `0x22↔0x23`; `FUN_26321` preserves the current frame and only clamps it to the target's last visible frame if necessary. It does not restart the jump. States `0x20` and `0x4b` change facing without replacing the state. Crouch `0x10` enters turn `0x45`; other eligible states enter `0x44`. Additional pairs `0x4c↔0x4d` and `0x1a↔0x21` belong to the alternate linked mode. At equal X, player 0 flips only when both fighters are at ground Y and share a facing. [Document 14](14_combat_inputs_and_jumps.md) records the verified crossing rules and current port limits.
 
 ## Physics and movement: `FUN_21baf`
 

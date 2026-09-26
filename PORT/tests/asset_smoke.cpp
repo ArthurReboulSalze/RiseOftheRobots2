@@ -68,6 +68,40 @@ int main(int argc, char** argv) {
                 }
                 if (takeoffs != 1 || jump.airborne() || jump.y != jump.ground_y)
                     throw std::runtime_error("Jump repeated or failed to land: " + bank);
+
+                for (int direction : {1, -1}) {
+                    Fighter flying, control, opponent;
+                    for (Fighter* f : {&flying, &control, &opponent})
+                        f->set_banks(fighter.atlas, moves);
+                    flying.x = control.x = direction > 0 ? 280 : 320;
+                    flying.facing = control.facing = direction;
+                    opponent.x = 300;
+                    opponent.facing = -direction;
+                    const uint16_t input = IN_UP | (direction > 0 ? IN_RIGHT : IN_LEFT);
+                    int turns = 0;
+                    bool took_off = false;
+                    for (int tick = 0; tick < 100; ++tick) {
+                        const int previous_facing = flying.facing;
+                        update_facing(flying, opponent);
+                        if (previous_facing != flying.facing) ++turns;
+                        flying.step(input);
+                        control.step(input);
+                        if (flying.y != control.y || !flying.current_atlas_frame())
+                            throw std::runtime_error("Crossing changed jump trajectory: " + bank);
+                        const auto* motion = flying.move();
+                        if (!motion->movements[0].empty()) {
+                            const int delta = motion->movements[0][flying.seq_pos] * 2 * flying.facing;
+                            if (delta * direction < 0)
+                                throw std::runtime_error("Crossing reversed travel: " + bank);
+                            flying.x += delta;
+                        }
+                        took_off |= flying.airborne();
+                        if (took_off && !flying.airborne()) break;
+                    }
+                    if (!took_off || flying.airborne() || turns != 1 ||
+                        (flying.x - opponent.x) * direction <= 0)
+                        throw std::runtime_error("Diagonal jump failed to cross once: " + bank);
+                }
             }
             frontend.key(SDLK_RIGHT);
             frontend.key(SDLK_d);
@@ -77,7 +111,7 @@ int main(int argc, char** argv) {
             throw std::runtime_error("Bonus robots unavailable");
         frontend.key(SDLK_RETURN);
         if (!frontend.take_match_request()) throw std::runtime_error("Match not requested");
-        std::printf("Intro, title, %d robot banks, held attacks and supported jumps checked.\n", count);
+        std::printf("Intro, title, %d robot banks, held attacks, jumps and both crossing directions checked.\n", count);
     } catch (const std::exception& error) {
         std::fprintf(stderr, "%s\n", error.what());
         result = 1;

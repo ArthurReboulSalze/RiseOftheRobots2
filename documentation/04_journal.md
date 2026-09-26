@@ -2,6 +2,12 @@
 
 This is a chronological research log. Early interpretations are preserved here as history; documents 05, 07, 08, 09, and 10 describe the corrected current understanding. In particular, early claims that MVS held sound and MRW held video were disproved. The French originals remain in the local Git history; this public version records their findings in English.
 
+## Session 29 — 2026-09-26: stable crossing and DOS turns
+
+The user confirmed the attack/jump correction, then reported repeated mirroring when passing the opponent, especially in the air. The port flipped facing while retaining the same diagonal-jump state, reversing horizontal travel and repeatedly crossing back. Ghidra and original-instruction execution confirmed that `FUN_25615` runs once before motion, exchanges jumps 34/35 on a turn, locks ordinary attacks, and uses ground-turn states 68/69. `FUN_26321` preserves animation progress and clamps an overlong frame; the earlier engine note claiming a restart was corrected.
+
+Interactive and headless combat now share the source-based facing routine. Jump turning preserves velocity, fractional displacement and movement initialization. Synthetic crossing checks, sixteen original DOS cases, both CTest checks, the 30-robot private profile and the existing headless fight passed. Supported robots crossed in both diagonal-jump directions and landed without reversing travel. Full DOS pushback and linked combat modes remain open; see document 14.
+
 ## Session 28 — 2026-09-26: held attacks and jump physics
 
 Ghidra and assembly confirmed that `FUN_197b6` suppresses the complete attack-button group while any attack key remains held, then swaps horizontal bits according to facing. The port's guessed loop-state list incorrectly included standing attacks 8/9; it was replaced with MVS automatic-target, hold and resume handling. Input sampling now retains taps observed between simulation ticks, and attacks require a release before another press.

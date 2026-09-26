@@ -40,14 +40,6 @@ static void draw_fighter(SDL_Renderer* r, const Fighter& f, int cam_x) {
     SDL_RenderCopyEx(r, page, &src, &dst, 0, nullptr, flip);
 }
 
-// Facing: each fighter looks toward the opponent when positions differ (fn_25615).
-static void update_facing(Fighter& a, Fighter& b) {
-    if (a.x < b.x) a.facing = 1;
-    else if (a.x > b.x) a.facing = -1;
-    if (b.x < a.x) b.facing = 1;
-    else if (b.x > a.x) b.facing = -1;
-}
-
 // Apply current-movement displacement (one step per frame, scaled x2 by facing).
 static void apply_movement(Fighter& f) {
     const MvsMove* mv = f.move();
@@ -321,7 +313,6 @@ int main(int argc, char** argv) {
                 if (t2 >= 0) fprintf(stderr, "p2: m%d -> m%d (entree=%#x)\n", old_move2, t2, in2_ai);
                 apply_movement(p1);
                 apply_movement(p2);
-                update_facing(p1, p2);
 
                 // --- Collisions and damage (simplified fn_381a9 + fn_38b72) ---
                 static std::vector<Cl2Box> att1, bod1, att2, bod2;

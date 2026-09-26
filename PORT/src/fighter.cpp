@@ -60,6 +60,51 @@ void Fighter::enter_move(int target, int first_frame) {
     move_started = false;
 }
 
+void Fighter::turn_to(int direction) {
+    if (direction == facing) return;
+    // FUN_25615 permits turning only in these states. Ordinary attacks keep
+    // their orientation until completion; normal combat uses link mode -1.
+    switch (move_id) {
+    case 0: case 2: case 3: case 6: case 16: case 18: case 22: case 26:
+    case 32: case 33: case 34: case 35: case 60: case 61: case 62:
+    case 74: case 75: case 76: case 77: case 79:
+        break;
+    default:
+        return;
+    }
+    facing = direction;
+    if (move_id == 34 || move_id == 35) {
+        // Swap forward/backward jump together with facing. Their signed
+        // displacement streams then keep the SAME direction on screen.
+        const int target = move_id == 34 ? 35 : 34;
+        if (!mvs || target >= (int)mvs->moves.size()) return;
+        move_id = target;
+        const MvsMove* mv = move();
+        if (!mv->sequences.empty()) {
+            const auto& seq = mv->sequences[0]; // FUN_26321 checks the first stream
+            const int count = (int)seq.size() - (!seq.empty() && seq.back().end ? 1 : 0);
+            if (count > 0) seq_pos = std::clamp(seq_pos, 0, count - 1);
+        }
+        // FUN_26321 only clamps the frame. Preserve velocity, fraction, move
+        // initialization and hit latch; turning must not restart takeoff.
+    } else if (move_id != 32 && move_id != 75) {
+        enter_move(move_id == 16 ? 69 : 68); // crouching/standing turn animations
+    }
+}
+
+void update_facing(Fighter& a, Fighter& b) {
+    if (a.x == b.x) {
+        // DOS tie rule: one grounded fighter turns if both face the same way.
+        // Airborne equality preserves orientation; there is no side to choose.
+        if (a.facing == b.facing && a.y == a.ground_y && b.y == b.ground_y)
+            a.facing = -a.facing;
+        return;
+    }
+    const int direction = a.x < b.x ? 1 : -1;
+    a.turn_to(direction);
+    b.turn_to(-direction);
+}
+
 void Fighter::update_vertical() {
     const MvsMove* mv = move();
     if (!mv) return;

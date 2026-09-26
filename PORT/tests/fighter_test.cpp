@@ -7,6 +7,12 @@ static bool check(bool ok, const char* message) {
     return ok;
 }
 
+static int horizontal_delta(const Fighter& fighter) {
+    const auto* move = fighter.move();
+    if (!move || move->movements.empty() || move->movements[0].empty()) return 0;
+    return move->movements[0][fighter.seq_pos] * 2 * fighter.facing;
+}
+
 int main() {
     AtlasBank atlas;
     atlas.frames.resize(3);
@@ -193,5 +199,102 @@ int main() {
     if (!check(delayed.move_id == 6, "counted hold must keep its full completion delay")) return 1;
     delayed.step(0);
     if (!check(delayed.move_id == 0, "counted hold must reach its automatic target")) return 1;
+
+    // Native state numbers are required here because FUN_25615 maps pairs
+    // 34/35 and uses turn states 68/69. These are entirely synthetic sequences.
+    MvsBank crossing;
+    crossing.moves.resize(96, idle);
+    crossing.moves[0].transitions = {{IN_UP, 32}, {IN_UP | IN_LEFT, 34},
+                                     {IN_UP | IN_RIGHT, 35}, {IN_LEFT, 2},
+                                     {IN_RIGHT, 3}, {IN_PUNCH, 8}, {IN_KICK, 9}};
+    crossing.moves[2] = crossing.moves[3] = walk;
+    crossing.moves[2].transitions = {{0, 0}, {IN_RIGHT, 3}};
+    crossing.moves[3].transitions = {{0, 0}, {IN_LEFT, 2}};
+    crossing.moves[2].movements = {{-3, -3}};
+    crossing.moves[3].movements = {{3, 3}};
+    crossing.moves[8] = crossing.moves[9] = one_shot;
+    crossing.moves[32] = crossing.moves[34] = crossing.moves[35] = jump;
+    for (int id : {32, 34, 35}) {
+        crossing.moves[id].sequences[0] = {{0, 0, false}, {1, 0, false},
+                                          {0, 0, false}, {1, 0, false}, {-1, 0, true}};
+        crossing.moves[id].transitions.clear();
+        crossing.moves[id].state_flags = 0x10; // catches accidental reinitialization on turn
+    }
+    crossing.moves[34].movements = {{-6, -6, -6, -6}};
+    crossing.moves[35].movements = {{6, 6, 6, 6}};
+    crossing.moves[68] = crossing.moves[69] = idle;
+    crossing.moves[68].flags = crossing.moves[69].flags = 0x0a;
+    crossing.moves[69].auto_move = 16;
+
+    for (int direction : {1, -1}) {
+        Fighter flying, control, opponent;
+        for (Fighter* f : {&flying, &control, &opponent}) f->set_banks(&atlas, &crossing);
+        flying.x = control.x = direction > 0 ? 230 : 370;
+        flying.facing = control.facing = direction;
+        opponent.x = 300;
+        opponent.facing = -direction;
+        int turns = 0;
+        const uint16_t input = IN_UP | (direction > 0 ? IN_RIGHT : IN_LEFT);
+        for (int tick = 0; tick < 25; ++tick) {
+            const int facing_before = flying.facing;
+            update_facing(flying, opponent);
+            if (facing_before != flying.facing) ++turns;
+            flying.step(input);
+            control.step(input); // same flight without an opponent to turn toward
+            const int delta = horizontal_delta(flying);
+            if (!check(delta * direction >= 0 && flying.y == control.y,
+                       "crossing in the air must not reverse travel or restart the jump")) return 1;
+            flying.x += delta;
+        }
+        if (!check(turns == 1 && (flying.x - opponent.x) * direction > 0 &&
+                   !flying.airborne() && flying.facing == -direction,
+                   "a diagonal jump must cross once, keep travelling and land beyond the opponent")) return 1;
+    }
+
+    Fighter turner, enemy;
+    turner.set_banks(&atlas, &crossing);
+    enemy.set_banks(&atlas, &crossing);
+    turner.x = 340; enemy.x = 320;
+    enemy.facing = 1;
+    turner.move_id = 35; turner.y = 200; turner.seq_pos = 40;
+    update_facing(turner, enemy);
+    if (!check(turner.move_id == 34 && turner.seq_pos == 3 && turner.y == 200,
+               "jump remapping must clamp the current frame without restarting it")) return 1;
+    turner.facing = 1; turner.move_id = 8; turner.seq_pos = 1; turner.hit_move = 8;
+    update_facing(turner, enemy);
+    if (!check(turner.facing == 1 && turner.move_id == 8 && turner.hit_move == 8,
+               "crossing must not mirror or re-arm an attack in progress")) return 1;
+    turner.move_id = 16; turner.y = turner.ground_y;
+    update_facing(turner, enemy);
+    if (!check(turner.facing == -1 && turner.move_id == 69 && turner.seq_pos == 0,
+               "a crouching fighter must use the crouch-turn animation")) return 1;
+
+    // Held screen-right input must also remain monotonic when walking through.
+    Fighter walker;
+    walker.set_banks(&atlas, &crossing);
+    walker.x = 290; enemy.x = 300; enemy.facing = -1;
+    int walk_turns = 0;
+    for (int tick = 0; tick < 30; ++tick) {
+        const int previous_facing = walker.facing;
+        update_facing(walker, enemy);
+        if (previous_facing != walker.facing) ++walk_turns;
+        walker.step(IN_RIGHT);
+        const int delta = horizontal_delta(walker);
+        if (!check(delta >= 0, "held screen direction must not reverse after a ground crossing")) return 1;
+        walker.x += delta;
+    }
+    if (!check(walk_turns == 1 && walker.x > enemy.x && walker.facing == -1,
+               "walking through must turn once and continue on the far side")) return 1;
+
+    walker.x = enemy.x;
+    walker.facing = enemy.facing = 1;
+    for (int i = 0; i < 20; ++i) update_facing(walker, enemy);
+    if (!check(walker.facing == -1 && enemy.facing == 1,
+               "grounded equality must settle to opposite orientations")) return 1;
+    walker.y -= 10;
+    walker.facing = enemy.facing = 1;
+    for (int i = 0; i < 20; ++i) update_facing(walker, enemy);
+    if (!check(walker.facing == 1 && enemy.facing == 1,
+               "airborne equality must preserve orientation without flipping repeatedly")) return 1;
     return 0;
 }

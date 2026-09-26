@@ -1,4 +1,4 @@
-"""Check DOS attack filtering and jump arithmetic against the user's executable.
+"""Check DOS attack filtering, jump arithmetic and crossing against the user's executable.
 
 Optional dependency: pip install --target ANALYSIS/verification_deps unicorn
 Only the analysed older DOS EXR is mapped. No original code or assets embedded.
@@ -88,9 +88,54 @@ def verify(source):
             break
     else:
         raise ValueError("DOS jump failed to land.")
+    landing_move = word(mu, 0x6620e)
+
+    # FUN_25615 and its real FUN_26321 helper: relocate a supplied MVS bank
+    # exactly as the loader does, so sequence clamping also executes unchanged.
+    bank_address = DESCRIPTOR + 0x10000
+    bank = bytearray((source / "RBTF.MVS").read_bytes())
+    moves = parse_bank(source / "RBTF.MVS")["moves"]
+    for state in moves:
+        offset = state["descriptor_offset"]
+        for field in range(7):
+            pointer = struct.unpack_from("<I", bank, offset + field * 4)[0]
+            struct.pack_into("<I", bank, offset + field * 4, bank_address + pointer)
+    mu = machine()
+    mu.mem_write(bank_address, bytes(bank))
+    mu.mem_write(0x685cc, struct.pack("<II", bank_address + 12, bank_address + 12))
+    mu.mem_write(0x703b2, struct.pack("<I", 0xffff0000))
+    cases = []
+    for before, after, position in [(3, 68, 7), (16, 69, 0), (8, 8, 2),
+                                    (32, 32, 2), (34, 35, 7), (35, 34, 7),
+                                    (35, 34, 40), (37, 37, 1)]:
+        for facing in [1, -1]:
+            mu.mem_write(0x6620c, bytes(0x97 * 2))
+            for player, state, x, direction in [(0, before, 340 if facing == 1 else 300, facing),
+                                               (1, 8, 320, facing)]:
+                stride = player * 0x97
+                for address, value in [(0x6620e, state), (0x66212, x), (0x66214, 200),
+                                       (0x66254, 312), (0x66216, position), (0x6621c, -2000)]:
+                    mu.mem_write(address + stride, struct.pack("<h", value))
+                mu.mem_write(0x66224 + stride, bytes([int(direction < 0)]))
+            run(mu, 0x25615)
+            observed = dict(before=before, after=word(mu, 0x6620e), facing_before=facing,
+                            facing_after=-1 if mu.mem_read(0x66224, 1)[0] & 1 else 1,
+                            frame=word(mu, 0x66216), y=word(mu, 0x66214),
+                            velocity=word(mu, 0x6621c))
+            wanted_frame = min(position, len(moves[after]["sequences"][0]) - 2)
+            if after in [68, 69]:
+                wanted_frame = 0
+            if before in [8, 37]:
+                wanted_frame = position
+            if observed != dict(before=before, after=after, facing_before=facing,
+                                 facing_after=facing if before in [8, 37] else -facing,
+                                 frame=wanted_frame, y=200, velocity=-2000):
+                raise ValueError(f"Unexpected DOS crossing: {observed}")
+            cases.append(observed)
     return dict(executable_sha256=digest, attacks=attacks, facing_left_right_mask=4,
                 jump=dict(bank="RBTF", move=32, impulse=impulse, gravity_byte=move["state"]["gravity"],
-                          gravity_fixed=gravity, y=heights, landing_move=word(mu, 0x6620e)))
+                          gravity_fixed=gravity, y=heights, landing_move=landing_move),
+                crossing=cases)
 
 
 if __name__ == "__main__":
