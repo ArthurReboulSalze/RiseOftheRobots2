@@ -45,7 +45,15 @@ SDL_Rect Fighter::frame_rect(const AtlasFrame& frame, int camera_x) const {
 void Fighter::sample_inputs(uint16_t inputs) {
     constexpr uint16_t attacks = IN_PUNCH | IN_KICK;
     // FUN_197b6 suppresses ALL attack buttons if any was held last sample.
-    if (!(held_inputs & attacks)) pressed_inputs |= inputs & attacks;
+    if (!(held_inputs & attacks) && (inputs & attacks)) {
+        pressed_inputs |= inputs & attacks;
+        pressed_strength = (inputs & IN_HEAVY) ? 90 : (inputs & IN_MEDIUM) ? 60 : 30;
+    }
+    if ((inputs & 0x3f) != (held_inputs & 0x3f)) {
+        uint16_t event = inputs & 0x3f;
+        if (held_inputs & attacks) event &= ~attacks;
+        if (input_events.size() < 32) input_events.push_back(event);
+    }
     pressed_inputs |= inputs & ~held_inputs & IN_UP;
     held_inputs = inputs;
 }
@@ -57,7 +65,63 @@ void Fighter::enter_move(int target, int first_frame) {
     displacement = repeat_count = 0;
     playing = true;
     hit_move = -1;
+    hits_in_move = 0;
     move_started = false;
+    combo_cancel = false;
+    ++move_serial;
+    // FUN_21baf: saved strength selects a stream against full energy (120).
+    speed_level = std::clamp((attack_strength * 3 + 3) / 120, 0, 2);
+    if (speed_level >= (int)move()->sequences.size()) speed_level = 0;
+}
+
+void Fighter::force_move(int target, int first_frame) { enter_move(target, first_frame); }
+
+void Fighter::stop_vertical() {
+    y = ground_y;
+    vertical_velocity = vertical_fraction = 0;
+}
+
+void Fighter::remember(int input) {
+    // FUN_161c0 stores changes newest first, with F0 marking a held-input gap.
+    if (input & 0x21) input &= 0x21;
+    const int comparison = history[0] == 240 ? history[1] : history[0];
+    if (input != comparison) {
+        std::move_backward(history.begin(), history.end()-1, history.end());
+        history[0] = input;
+        history_age = 0;
+    }
+}
+
+bool Fighter::command_allowed(int target, const Fighter* opponent, bool finishing, int slots) const {
+    if (!mvs || target < 0 || target >= (int)mvs->moves.size()) return false;
+    const auto& desired = mvs->moves[target];
+    if (!has_action(target)) return false;
+    if ((desired.ground_mode == 2) != airborne()) return false;
+    if (!desired.projectile.empty() && slots <= 0) return false;
+    if (target >= 48 && target <= 58 && !(target & 1) && !finishing) return false;
+    if (target == 88 && super_meter != 24) return false;
+    if (move_id == 72 || move_id == 73) return false;
+    if (move()->action_type > 1 && seq_pos > 1 && !combo_cancel) return false;
+    if (((robot_id == 4 && target == 87) || ((robot_id == 5 || robot_id == 20) && target == 80))
+        && pressed_strength != 30) return false;
+    if (target == 89 && (!opponent || (opponent->robot_id != 6 && opponent->robot_id != 18) ||
+        opponent->health > 30 || std::abs(x-opponent->x) > 140 || airborne() || opponent->airborne())) return false;
+    if (target >= 90 && !(stolen_moves & (1 << (target-90)))) return false;
+    return true;
+}
+
+bool Fighter::has_action(int target) const {
+    if (!mvs || target < 0 || target >= (int)mvs->moves.size()) return false;
+    const auto& m = mvs->moves[target];
+    if (!m.projectile.empty()) return true;
+    for (const auto& s : m.attached) if (!s.empty()) return true;
+    for (const auto& s : m.sequences) {
+        if (s.size()>2) return true;
+        for (const auto& e : s)
+            if (!e.end && cl2 && e.image>=0 && e.image<(int)cl2->frames.size() &&
+                !cl2->frames[e.image].attack_boxes.empty()) return true;
+    }
+    return false;
 }
 
 void Fighter::turn_to(int direction) {
@@ -132,28 +196,73 @@ void Fighter::update_vertical() {
     }
 }
 
-int Fighter::step(uint16_t inputs) {
+int Fighter::step(uint16_t inputs, const Fighter* opponent, bool finishing, int free_projectiles) {
+    advanced = false;
     const MvsMove* mv = move();
     if (!mv) return -1;
     const int old_move = move_id;
     sample_inputs(inputs);
     constexpr uint16_t attacks = IN_PUNCH | IN_KICK;
-    uint16_t effective = (inputs & ~attacks) | (pressed_inputs & attacks);
+    uint16_t effective = (inputs & 0x1e) | (pressed_inputs & attacks);
+    if (effective & attacks) input_strength = pressed_strength;
     // One jump per press; direction and crouch continue to use held inputs.
     if (!(pressed_inputs & IN_UP) && !airborne()) effective &= ~IN_UP;
-    pressed_inputs = 0;
     // FUN_197b6 swaps horizontal bits when the fighter faces left.
     if (facing < 0)
         effective = (effective & ~(IN_LEFT | IN_RIGHT)) |
                     ((effective & IN_LEFT) >> 1) | ((effective & IN_RIGHT) << 1);
 
+    auto relative = [&](int mask) {
+        return facing < 0 ? (mask & ~6) | ((mask & 4) >> 1) | ((mask & 2) << 1) : mask;
+    };
+    if (history_lock > 0) {
+        --history_lock;
+        input_events.clear();
+    } else {
+        for (int event : input_events) remember(relative(event));
+        input_events.clear();
+        remember(effective);
+        if (++history_age >= 5 && history[0] != 240) {
+            std::move_backward(history.begin(), history.end()-1, history.end());
+            history[0] = 240;
+            history_age = 0;
+        }
+    }
+    if (hit_pause > 0) { --hit_pause; return -1; }
+    pressed_inputs = 0;
+    advanced = true;
+
     bool changed = false;
+    if (!(mv->state_flags & 0x20) && (move_id > 79 || move_id == 42 || (move_id & 15) < 10)) {
+        for (const auto& command : mvs->commands) {
+            if (command.inputs.size() > history.size()) continue;
+            bool matched = true;
+            for (size_t i = 0; i < command.inputs.size(); ++i)
+                if (command.inputs[i] != 254 && command.inputs[i] != history[i]) matched = false;
+            if (!matched || !command_allowed(command.target, opponent, finishing, free_projectiles)) continue;
+            attack_strength = input_strength;
+            if (command.target == 88) super_meter = 0;
+            if (command.target >= 90) stolen_moves &= ~(1 << (command.target-90));
+            enter_move(command.target);
+            history.fill(240); history_lock = 8; history_age = 0;
+            changed = true; mv = move();
+            break;
+        }
+    }
     for (const auto& t : mv->transitions) {
+        if (changed) break;
         uint16_t cur = effective;
         // FUN_234fa compares attack masks independently of held directions.
         if (t.mask & attacks) cur &= attacks;
         if (cur == t.mask && t.target != move_id && t.target < mvs->moves.size()) {
-            enter_move(t.target);
+            attack_strength = input_strength;
+            int target = t.target;
+            // FUN_234fa: forward + punch/kick at close range selects the grab.
+            if ((target == 8 || target == 9) && opponent && !airborne() &&
+                !opponent->airborne() && (effective & IN_RIGHT) &&
+                std::abs(x-opponent->x) < 61 && (opponent->move_id & 15) < 10 &&
+                target + 64 < (int)mvs->moves.size()) target += 64;
+            enter_move(target);
             changed = true;
             mv = move();
             break;
@@ -167,6 +276,8 @@ int Fighter::step(uint16_t inputs) {
             if (seq_pos + 1 < count) {
                 ++seq_pos;
             } else if ((mv->flags & 2) && !airborne()) {
+                if (mv->state_flags & 0x80) facing = -facing;
+                if (mv->flags & 4) input_strength = 0;
                 // Automatic target, not an arbitrary list of looping move IDs.
                 enter_move(mv->auto_move, (mv->flags & 8) ? mv->resume_index : 0);
             } else if (mv->flags & 2) {
@@ -181,6 +292,8 @@ int Fighter::step(uint16_t inputs) {
             } else if ((mv->flags & 8) && mv->resume_index < count) {
                 seq_pos = mv->resume_index;
             } else if (mv->flags & 1) {
+                if (mv->state_flags & 0x80) facing = -facing;
+                if (mv->flags & 4) input_strength = 0;
                 playing = false;
             } else {
                 enter_move(0);
@@ -188,6 +301,11 @@ int Fighter::step(uint16_t inputs) {
         }
     }
     update_vertical();
+    // FUN_23138: MVS bit 0x20 allows held horizontal steering, including air attacks.
+    if (move()->flags & 0x20) {
+        if (effective & IN_RIGHT) x += 8*facing;
+        else if (effective & IN_LEFT) x -= 8*facing;
+    }
     return changed || move_id != old_move ? move_id : -1;
 }
 void Fighter::get_boxes(std::vector<Cl2Box>* attacks, std::vector<Cl2Box>* bodies) const {

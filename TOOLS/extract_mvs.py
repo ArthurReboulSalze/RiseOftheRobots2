@@ -44,6 +44,55 @@ def parse_transitions(d, ptr, be=False):
             break
     return out
 
+def parse_commands(d, start, end, move_count):
+    """FUN_234fa: newest input first, FE consumes any one history entry."""
+    if not 12 <= start <= end <= len(d):
+        raise ValueError("MVS command section out of bounds")
+    commands, inputs = [], []
+    pos = start
+    while pos < end:
+        value = d[pos]
+        pos += 1
+        if value == 0xff:
+            if not inputs:
+                return commands
+            if pos >= end or d[pos] >= move_count:
+                raise ValueError("Invalid MVS command target")
+            commands.append(dict(inputs=inputs, target=d[pos]))
+            inputs = []
+            pos += 1
+        else:
+            if len(inputs) >= 16:
+                raise ValueError("Invalid MVS command input")
+            inputs.append(value)
+    if inputs:
+        raise ValueError("Unterminated MVS command")
+    return commands
+
+
+def parse_effect_script(d, start, end, be=False):
+    """Eight-byte image/dx/dy/flags records; -999 ends, negative images loop."""
+    if not 0 <= start < end <= len(d):
+        raise ValueError("MVS effect script out of bounds")
+    out = []
+    for pos in range(start, end - 1, 8):
+        image = struct.unpack_from(('>' if be else '<') + 'h', d, pos)[0]
+        if image == -999:
+            out.append(dict(image=image, dx=0, dy=0, flags=0))
+            break
+        if pos + 8 > end:
+            raise ValueError("Truncated MVS effect frame")
+        image, dx, dy, flags = struct.unpack_from(('>' if be else '<') + '4h', d, pos)
+        if image < 0 and image != -999 and len(out) + image < 0:
+            raise ValueError("MVS effect loop out of bounds")
+        out.append(dict(image=image, dx=dx, dy=dy, flags=flags))
+    if not out:
+        raise ValueError("Empty MVS effect script")
+    if out[-1]['image'] >= 0:
+        raise ValueError("Unterminated MVS effect script")
+    return out
+
+
 def parse_bank(path):
     d = Path(path).read_bytes()
     # FUN_23e97 loads 96 fourteen-byte STS records beside the MVS bank.
@@ -99,7 +148,24 @@ def parse_bank(path):
             moves[-1]['state'] = dict(ground_mode=record[0],
                                      action_type=struct.unpack('b', record[1:2])[0],
                                      gravity=record[4], flags=record[6])
-    return dict(magic='MVS' + ('-BE' if be else ''), dword4=hex(v1), dword8=hex(v2), count=len(offs), moves=moves)
+    commands = parse_commands(d, v2, v1, len(offs))
+    # Header +4: five pointers per movement, unrelated to AIP CPU scripts.
+    if len(offs) == 96:
+        table_end = v1 + len(offs) * 20
+        if table_end > len(d):
+            raise ValueError("Truncated MVS effect directory")
+        rows = [struct.unpack_from(('>' if be else '<') + '5I', d, v1 + i*20)
+                for i in range(len(offs))]
+        pointers = sorted({p for row in rows for p in row if p})
+        if any(p < table_end or p >= len(d) for p in pointers):
+            raise ValueError("Invalid MVS effect pointer")
+        scripts = {p: parse_effect_script(d, p, pointers[j+1] if j+1 < len(pointers) else len(d), be)
+                   for j, p in enumerate(pointers)}
+        for move, row in zip(moves, rows):
+            move['effects'] = dict(attached=[scripts.get(p, []) for p in row[:3]],
+                                   projectile=scripts.get(row[3], []), impact=scripts.get(row[4], []))
+    return dict(magic='MVS' + ('-BE' if be else ''), dword4=hex(v1), dword8=hex(v2),
+                count=len(offs), commands=commands, moves=moves)
 
 def main():
     global SRC, OUT

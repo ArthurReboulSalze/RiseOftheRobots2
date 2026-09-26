@@ -14,6 +14,7 @@ add_executable(rotr2
   src/audio.cpp
   src/assets.cpp
   src/fighter.cpp
+  src/combat.cpp
   src/ui.cpp
   src/frontend.cpp
 )
@@ -46,6 +47,13 @@ if(BUILD_TESTING)
   target_include_directories(rotr2_fighter_test PRIVATE ${SDL2_DIR}/include src)
   add_test(NAME fighter_frames COMMAND rotr2_fighter_test)
 
+  add_executable(rotr2_combat_test tests/combat_test.cpp src/fighter.cpp src/combat.cpp)
+  target_include_directories(rotr2_combat_test PRIVATE ${SDL2_DIR}/include src)
+  target_link_libraries(rotr2_combat_test PRIVATE ${SDL2_DIR}/lib/x64/SDL2.lib)
+  add_custom_command(TARGET rotr2_combat_test POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SDL2_DIR}/lib/x64/SDL2.dll $<TARGET_FILE_DIR:rotr2_combat_test>)
+  add_test(NAME combat_rules COMMAND rotr2_combat_test)
+
   add_executable(rotr2_audio_test tests/audio_test.cpp src/audio.cpp)
   target_include_directories(rotr2_audio_test PRIVATE
     ${SDL2_DIR}/include ${SDL2MIX_DIR}/include src)
@@ -60,7 +68,7 @@ if(BUILD_TESTING)
 
   # Manual check against a private imported profile; no game data in CI.
   add_executable(rotr2_asset_smoke tests/asset_smoke.cpp
-    src/assets.cpp src/fighter.cpp src/ui.cpp src/frontend.cpp)
+    src/assets.cpp src/fighter.cpp src/combat.cpp src/ui.cpp src/frontend.cpp)
   target_include_directories(rotr2_asset_smoke PRIVATE
     ${SDL2_DIR}/include ${SDL2IMG_DIR}/include ${TP} src)
   target_link_libraries(rotr2_asset_smoke PRIVATE
@@ -72,7 +80,7 @@ if(BUILD_TESTING)
 
   # Rendu headless du combat en PNG (verification interne sans fenetre).
   add_executable(rotr2_headless tests/headless_render.cpp
-    src/assets.cpp src/fighter.cpp)
+    src/assets.cpp src/fighter.cpp src/combat.cpp)
   target_include_directories(rotr2_headless PRIVATE
     ${SDL2_DIR}/include ${SDL2IMG_DIR}/include ${TP} src)
   target_link_libraries(rotr2_headless PRIVATE

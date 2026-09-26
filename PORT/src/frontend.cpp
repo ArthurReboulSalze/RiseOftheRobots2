@@ -106,6 +106,11 @@ void Frontend::return_to_select() {
 }
 
 void Frontend::load_keymap() {
+    const uint16_t defaults[2][10] = {
+        {0x48,0x50,0x4b,0x4d,0x11,0x2d,0x12,0x10,0x1f,0x20},
+        {0x49,0x51,0x47,0x4f,0x17,0x18,0x19,0x25,0x26,0x32}
+    };
+    for (int p=0;p<2;++p) for (int e=0;e<10;++e) keymap_[p][e]=defaults[p][e];
     FILE* fp = fopen(cfg_path_.c_str(), "rb");
     if (!fp) {
         fprintf(stderr, "rise2.cfg introuvable (%s) : defauts clavier\n", cfg_path_.c_str());
@@ -218,7 +223,7 @@ void Frontend::key(SDL_Keycode key) {
         return;
     }
     if (screen_ == Screen::Select) {
-        const int count = static_cast<int>(kRoster.size());
+        const int count = static_cast<int>(portraits_->frames.size());
         const int step = (key == SDLK_LEFT || key == SDLK_a || key == SDLK_q) ? -1
                          : (key == SDLK_RIGHT || key == SDLK_d) ? 1 : 0;
         if (step != 0) {

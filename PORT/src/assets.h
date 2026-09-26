@@ -29,6 +29,9 @@ struct VideoBank {
 // MVS movement bank converted to JSON.
 struct MvsTransition { uint16_t mask, target; };
 struct MvsSeqEntry { int image; int ctrl; bool end; };
+struct EffectFrame { int image, dx, dy, flags; };
+using EffectScript = std::vector<EffectFrame>;
+struct MoveCommand { std::vector<int> inputs; int target; };
 struct MvsMove {
     int index = 0;
     std::vector<std::vector<MvsSeqEntry>> sequences; // three speed levels
@@ -39,14 +42,17 @@ struct MvsMove {
     // Four properties from the matching 14-byte STS record.
     uint8_t ground_mode = 0, gravity = 248, state_flags = 0;
     int action_type = 0;
+    std::vector<EffectScript> attached;
+    EffectScript projectile, impact;
 };
 
 struct MvsBank {
     std::vector<MvsMove> moves;
+    std::vector<MoveCommand> commands;
 };
 
 // CL2 collision boxes: attack 5 bytes, body 6 bytes, single 5 bytes
-struct Cl2Box { int x, y, w, h, damage_or_type; };
+struct Cl2Box { int x, y, w, h, damage_or_type; int region = 0; };
 struct Cl2Frame {
     std::vector<Cl2Box> attack_boxes;   // attack boxes (x, y, w, h, damage)
     std::vector<Cl2Box> body_boxes;     // body boxes
@@ -58,6 +64,12 @@ struct Cl2Bank {
     std::vector<Cl2Frame> frames;
 };
 
+struct CombatData {
+    std::vector<EffectScript> impacts;
+    std::vector<std::vector<int>> particles;
+    std::vector<int> super_strength, reactions;
+};
+
 class Assets {
 public:
     Assets(SDL_Renderer* renderer, const std::string& extracted_dir);
@@ -67,6 +79,7 @@ public:
     SDL_Texture* load_ggf(const std::string& name);
     const MvsBank* load_mvs(const std::string& bank);
     const Cl2Bank* load_cl2(const std::string& robot_letter);
+    const CombatData* load_combat();
     const std::string& dir() const { return m_dir; }
 
 private:
@@ -77,4 +90,6 @@ private:
     std::unordered_map<std::string, SDL_Texture*> m_ggf;
     std::unordered_map<std::string, MvsBank> m_mvs;
     std::unordered_map<std::string, Cl2Bank> m_cl2;
+    CombatData m_combat;
+    bool m_combat_loaded = false;
 };

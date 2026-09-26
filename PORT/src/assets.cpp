@@ -20,6 +20,21 @@ static std::string read_file(const std::string& path) {
 Assets::Assets(SDL_Renderer* renderer, const std::string& extracted_dir)
     : m_renderer(renderer), m_dir(extracted_dir) {}
 
+const CombatData* Assets::load_combat() {
+    if (m_combat_loaded) return &m_combat;
+    const auto data = json::parse(read_file(m_dir + "/data/combat.json"));
+    for (const auto& frames : data["impacts"]) {
+        EffectScript script;
+        for (const auto& f : frames) script.push_back({f["image"], f["dx"], f["dy"], f["flags"]});
+        m_combat.impacts.push_back(std::move(script));
+    }
+    m_combat.particles = data["particles"].get<std::vector<std::vector<int>>>();
+    m_combat.super_strength = data["super_strength"].get<std::vector<int>>();
+    m_combat.reactions = data["reactions"].get<std::vector<int>>();
+    m_combat_loaded = true;
+    return &m_combat;
+}
+
 Assets::~Assets() {
     for (auto& item : m_atlases)
         for (SDL_Texture* texture : item.second.pages) SDL_DestroyTexture(texture);
@@ -99,6 +114,14 @@ const MvsBank* Assets::load_mvs(const std::string& bank) {
 
     json m = json::parse(read_file(m_dir + "/data/mvs/" + bank + ".json"));
     MvsBank mb;
+    auto script = [](const json& frames) {
+        EffectScript out;
+        for (const auto& f : frames) out.push_back({f["image"], f["dx"], f["dy"], f["flags"]});
+        return out;
+    };
+    if (m.contains("commands"))
+        for (const auto& c : m["commands"])
+            mb.commands.push_back({c["inputs"].get<std::vector<int>>(), c["target"]});
     for (auto& mv : m["moves"]) {
         MvsMove mo;
         mo.index = mv["index"];
@@ -106,6 +129,12 @@ const MvsBank* Assets::load_mvs(const std::string& bank) {
         mo.auto_move = mv["auto_move"];
         mo.resume_index = mv["resume_index"];
         mo.param = mv["param"];
+        if (mv.contains("effects")) {
+            const auto& e = mv["effects"];
+            for (const auto& s : e["attached"]) mo.attached.push_back(script(s));
+            mo.projectile = script(e["projectile"]);
+            mo.impact = script(e["impact"]);
+        }
         if (mv.contains("state")) {
             const auto& state = mv["state"];
             mo.ground_mode = state["ground_mode"];
@@ -149,9 +178,9 @@ const Cl2Bank* Assets::load_cl2(const std::string& robot_letter) {
     for (auto& r : m["records"]) {
         Cl2Frame fr;
         for (auto& b : r["attack_boxes"])
-            fr.attack_boxes.push_back({ b["x"], b["y"], b["w"], b["h"], b["damage_or_type"] });
+            fr.attack_boxes.push_back({ b["x"], b["y"], b["w"], b["h"], (int)(int8_t)b["damage_or_type"].get<int>() });
         for (auto& b : r["body_boxes"])
-            fr.body_boxes.push_back({ b["x"], b["y"], b["w"], b["h"], b["part"] });
+            fr.body_boxes.push_back({ b["x"], b["y"], b["w"], b["h"], b["part"], b["p4"] });
         for (auto& b : r["single_box"])
             fr.single_box.push_back({ b["x"], b["y"], b["w"], b["h"], b["tag"] });
         cb.frames.push_back(std::move(fr));

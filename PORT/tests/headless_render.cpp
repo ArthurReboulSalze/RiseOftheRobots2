@@ -3,6 +3,7 @@
 // Produit : render_fight_XX.png (toutes les 20 ticks) + un bilan sur stdout.
 #include "assets.h"
 #include "fighter.h"
+#include "combat.h"
 #include "frontend.h"
 #include "SDL.h"
 #include "SDL_image.h"
@@ -19,17 +20,6 @@ static int arena_min = 40, arena_max = 600;
 static uint16_t horizontal_input(bool left, bool right) {
     if (left == right) return 0;
     return right ? IN_RIGHT : IN_LEFT;
-}
-
-static void apply_movement(Fighter& f) {
-    const MvsMove* mv = f.move();
-    if (!mv || f.speed_level < 0 || f.speed_level >= (int)mv->movements.size() ||
-        f.seq_pos < 0 || f.seq_pos >= (int)mv->movements[f.speed_level].size()) return;
-    int s = mv->movements[f.speed_level][f.seq_pos];
-    if (s != 0) {
-        f.x += s * 2 * f.facing;
-        f.x = SDL_clamp(f.x, arena_min, arena_max);
-    }
 }
 
 int main(int argc, char** argv) {
@@ -86,22 +76,13 @@ int main(int argc, char** argv) {
         printf("       echelles : %.3f / %.3f\n", p1.sprite_scale, p2.sprite_scale);
         check(p1.sprite_scale > 0.4 && p1.sprite_scale < 1.0, "echelle combat plausible (0.4-1.0)");
 
+        p1.robot_id = 26; p2.robot_id = 5;
         p1.x = 220; p1.y = ground_y; p1.facing = 1;  p1.move_id = 0;
         p2.x = 420; p2.y = ground_y; p2.facing = -1; p2.move_id = 0;
 
         // 3) simulation scriptee : p1 marche puis frappe ; p2 subit ; 120 ticks
-        struct Particle { float x, y, vx, vy; int life; };
-        std::vector<Particle> particles;
+        Combat combat(assets.load_combat(),assets.load_atlas("EXTRA"),assets.load_cl2("EXTRA"));
         int hits = 0;
-        auto spawn_sparks = [&](int x, int y) {
-            for (int i = 0; i < 10; ++i) {
-                const float a = (float)(rand() % 628) / 100.0f;
-                const float sp = 1.5f + (rand() % 30) / 10.0f;
-                particles.push_back({ (float)x, (float)y, cosf(a) * sp, sinf(a) * sp - 1.0f,
-                                      6 + rand() % 8 });
-            }
-        };
-
         auto draw_fighter = [&](const Fighter& f) {
             const AtlasFrame* af = f.current_atlas_frame();
             if (!af || af->empty) return;
@@ -109,18 +90,6 @@ int main(int argc, char** argv) {
             SDL_Rect src{ af->rect_x, af->rect_y, af->rect_w, af->rect_h };
             const SDL_RendererFlip flip = f.facing >= 0 ? SDL_FLIP_NONE : SDL_FLIP_HORIZONTAL;
             SDL_RenderCopyEx(ren, f.atlas->pages[af->page], &src, &dst, 0, nullptr, flip);
-        };
-
-        auto render_frame = [&](const char* out) {
-            if (arena) {
-                SDL_Rect src{ (800 - 640) / 2, 0, 640, 400 };
-                SDL_Rect dst{ 0, 0, 640, 400 };
-                SDL_RenderCopy(ren, nullptr, &src, &dst); // placeholder evite : voir note
-            }
-            // rendu via texture temporaire : l'arene est une surface, on la blitte en CPU
-            // (SDL_CreateSoftwareRenderer accepte SDL_RenderCopy depuis une texture, on
-            //  convertit donc l'arene une fois en texture logicielle).
-            IMG_SavePNG(surface, out);
         };
 
         // les textures logicielles exigent des textures : convertir l'arene
@@ -138,7 +107,7 @@ int main(int argc, char** argv) {
 
         int health_before = p2.health;
         int min_jump_y = ground_y;
-        for (int tick = 0; tick < 120; ++tick) {
+        for (int tick = 0; tick < 160; ++tick) {
             SDL_SetRenderDrawColor(ren, 16, 13, 20, 255);
             SDL_RenderClear(ren);
             if (arena_tex) {
@@ -146,54 +115,20 @@ int main(int argc, char** argv) {
                 SDL_Rect dst{ 0, 0, 640, 400 };
                 SDL_RenderCopy(ren, arena_tex, &src, &dst);
             }
-            update_facing(p1, p2);
-            // Approach, hold punch, release, and punch again. Each hold is one attack.
             uint16_t in1 = 0;
-            if (tick < 30 && p2.x - p1.x > 100) in1 = horizontal_input(false, true);
+            if (tick < 30 && p2.x-p1.x > 100) in1 = IN_RIGHT;
             else if (tick >= 40 && tick < 55) in1 = IN_PUNCH;
-            else if (tick >= 70 && tick < 85) in1 = IN_PUNCH;
-            p1.step(in1);
-            p2.step(tick >= 90 ? IN_UP : 0);
-            min_jump_y = SDL_min(min_jump_y, p2.y);
-            apply_movement(p1);
-            apply_movement(p2);
-
-            std::vector<Cl2Box> att1, bod2;
-            p1.get_boxes(&att1, nullptr);
-            p2.get_boxes(nullptr, &bod2);
-            auto overlap = [](const Cl2Box& a, const Cl2Box& b) {
-                return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-            };
-            if (p1.hit_move != p1.move_id) {
-                for (auto& a : att1) {
-                    bool done = false;
-                    for (auto& b : bod2) {
-                        if (overlap(a, b)) {
-                            p2.health = SDL_max(0, p2.health - a.damage_or_type);
-                            p2.flash = 3;
-                            p1.hit_move = p1.move_id;
-                            spawn_sparks((a.x + b.x) / 2, (a.y + b.y) / 2);
-                            ++hits;
-                            done = true;
-                            break;
-                        }
-                    }
-                    if (done) break;
-                }
+            else if (tick >= 70 && tick < 85) {
+                // Follow the opponent's source pushback before the second strike.
+                in1 = p2.x-p1.x > 100 ? IN_RIGHT : IN_PUNCH;
             }
-            for (auto& pt : particles) { pt.x += pt.vx; pt.y += pt.vy; pt.vy += 0.15f; --pt.life; }
-            particles.erase(std::remove_if(particles.begin(), particles.end(),
-                [](const Particle& p) { return p.life <= 0; }), particles.end());
+            combat.tick(p1,p2,in1,tick>=120 ? IN_UP : 0);
+            hits += (int)combat.hits().size();
+            min_jump_y = SDL_min(min_jump_y,p2.y);
 
             draw_fighter(p1);
             draw_fighter(p2);
-            SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
-            for (const auto& pt : particles) {
-                SDL_SetRenderDrawColor(ren, 255, 230, 120, (int)(255 * pt.life / 14));
-                SDL_Rect px{ (int)pt.x, (int)pt.y, 3, 3 };
-                SDL_RenderFillRect(ren, &px);
-            }
-            SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
+            combat.render(ren,p1,p2,0);
 
             if (tick % 20 == 0) {
                 const std::string out = out_dir + "/render_fight_" + std::to_string(tick) + ".png";
@@ -205,7 +140,66 @@ int main(int argc, char** argv) {
         check(p2.health < health_before, "les degats s'appliquent");
         check(min_jump_y < ground_y - 100 && !p2.airborne() && p2.y == ground_y,
               "le saut de RBTF monte puis atterrit sans repetition");
-        printf("       hits=%d ; vie p2 : %d -> %d\n", hits, health_before, p2.health);
+        const int first_health_after=p2.health;
+        // Exercise a real bank's command, looping EXTRA projectile and on-hit
+        // animation through the same Combat class as the interactive game.
+        p1=Fighter{};p2=Fighter{};
+        p1.set_banks(ab2,mv2);p1.cl2=clf;p1.robot_id=5;p1.x=180;
+        p2.set_banks(ab1,mv1);p2.cl2=cl1;p2.robot_id=26;p2.x=400;p2.facing=-1;
+        p1.sprite_scale=156.0/ab2->frames[1].rect_h;
+        p2.sprite_scale=156.0/ab1->frames[1].rect_h;
+        combat.reset();
+        uint16_t latest=0;
+        for (const auto& c : mv2->commands) if (c.target==84)
+            for (auto it=c.inputs.rbegin();it!=c.inputs.rend();++it) {
+                latest=*it==254 ? 0 : *it;p1.sample_inputs(latest);
+            }
+        int projectile_hits=0;
+        for (int tick=0;tick<35;++tick) {
+            combat.tick(p1,p2,tick==0 ? latest : 0,0);
+            for (const auto& hit : combat.hits()) if (hit.projectile) ++projectile_hits;
+            if (arena_tex) {
+                SDL_Rect src{80,0,640,400},dst{0,0,640,400};
+                SDL_RenderCopy(ren,arena_tex,&src,&dst);
+            } else {SDL_SetRenderDrawColor(ren,16,13,20,255);SDL_RenderClear(ren);}
+            draw_fighter(p1);draw_fighter(p2);combat.render(ren,p1,p2,0);
+            if (tick==7 || tick==10 || tick==13)
+                check(IMG_SavePNG(surface,(out_dir+"/projectile_"+std::to_string(tick)+".png").c_str())==0,
+                      "capture FX projectile et explosion d'origine");
+        }
+        check(projectile_hits==1 && p2.health<120,"projectile original : un impact et des degats");
+        const auto* war_atlas=assets.load_atlas("RBTC");
+        const auto* war_moves=assets.load_mvs("RBTC");
+        p1=Fighter{};p2=Fighter{};
+        p1.set_banks(war_atlas,war_moves);p1.cl2=assets.load_cl2("RC");p1.robot_id=2;p1.x=220;
+        p2.set_banks(ab1,mv1);p2.cl2=cl1;p2.robot_id=26;p2.x=320;p2.facing=-1;p2.health=1;
+        p1.sprite_scale=156.0/war_atlas->frames[1].rect_h;
+        p2.sprite_scale=156.0/ab1->frames[1].rect_h;
+        combat.reset();
+        for (int tick=0;tick<40 && combat.phase()==RoundPhase::Fighting;++tick)
+            combat.tick(p1,p2,tick==0 ? IN_PUNCH : 0,0);
+        check(combat.phase()==RoundPhase::FinishWindow,"KO reel : fenetre de finishing");
+        combat.tick(p1,p2,0,0);
+        for (const auto& c : war_moves->commands) if (c.target==56)
+            for (auto it=c.inputs.rbegin();it!=c.inputs.rend();++it) {
+                latest=*it==254 ? 0 : *it;p1.sample_inputs(latest);
+            }
+        bool started=false,death=false;
+        for (int tick=0;tick<210;++tick) {
+            combat.tick(p1,p2,tick==0 ? latest : 0,0);
+            started|=combat.phase()==RoundPhase::Finishing;
+            death|=p2.move_id>=49 && p2.move_id<=59 && (p2.move_id&1);
+            if (tick==15 || tick==45 || tick==75) {
+                if (arena_tex) {SDL_Rect src{80,0,640,400},dst{0,0,640,400};SDL_RenderCopy(ren,arena_tex,&src,&dst);}
+                draw_fighter(p1);draw_fighter(p2);combat.render(ren,p1,p2,0);
+                check(IMG_SavePNG(surface,(out_dir+"/finishing_"+std::to_string(tick)+".png").c_str())==0,
+                      "capture finishing original");
+            }
+        }
+        check(started && death,"finishing reel : commande et reaction CL2 de mort");
+        SDL_DestroyTexture(arena_tex);
+        if (arena) SDL_FreeSurface(arena);
+        printf("       hits=%d ; vie p2 : %d -> %d\n", hits, health_before, first_health_after);
     } catch (const std::exception& e) {
         printf("[ECHEC] exception : %s\n", e.what());
         ++failures;

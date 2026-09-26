@@ -146,7 +146,8 @@ def import_source(source, dest, log):
 
 
 def required_files():
-    names = {"MAINSCR.GGF", "VS.GGF", "LLOGO.ANI", "VSFACE.ANL", "VSFACE.ANR", "VSFACE.PAL"}
+    names = {"MAINSCR.GGF", "VS.GGF", "LLOGO.ANI", "VSFACE.ANL", "VSFACE.ANR", "VSFACE.PAL",
+             "RISE2.EXR", "EXTRA.ANL", "EXTRA.ANR", "EXTRA.PAL", "EXTRA.CL2"}
     for slot in SLOTS:
         names.update({f"RBT{slot}.{ext}" for ext in ("ANL", "ANR", "MVS", "STS")})
         names.update((f"R{slot}.CL2", f"R{slot}.PAL", f"AG{slot}.GGF"))
@@ -245,6 +246,7 @@ def convert(game, extracted, log=print):
         ("extract_ggf.py", "--source", game, "--output", extracted / "ggf"),
         ("extract_anr.py", "--source", game, "--output", extracted / "sprites"),
         ("extract_mvs.py", "--source", game, "--output", extracted / "data/mvs"),
+        ("extract_combat.py", "--source", game, "--output", extracted / "data/combat.json"),
         ("extract_cl2.py", "--source", game, "--output", extracted / "data/cl2"),
         ("extract_mrw_audio.py", "--source", game, "--output", extracted / "audio/mrw"),
         ("extract_ani.py", "--source-dir", game, "--output-dir", extracted / "video"),

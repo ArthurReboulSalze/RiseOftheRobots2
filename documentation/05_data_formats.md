@@ -41,7 +41,7 @@ A 14-byte record comprises one u32, three u8 values, three u16 values and one u8
 | Extension | Count | Confirmed observation or limitation |
 |---|---:|---|
 | `.STS` | 28 | 96 fourteen-byte fighter-state records: ground/air conditions, action types, unsigned gravity and state flags; see document 14. |
-| `.MVS` | 30 | 96 moves per bank: three sequences, three displacement streams, transitions and four control bytes per descriptor. `RBMG`/`RBMN` use big-endian pointers. Details in document 09. |
+| `.MVS` | 30 | 96 moves per bank: three sequences, three displacement streams, transitions and four control bytes per descriptor, plus per-robot commands and five-pointer FX records. `RBMG`/`RBMN` use big-endian pointers. Details in documents 09 and 15. |
 | `.A0C`–`.A5C` | 28×6 | 500-byte masks selecting frames to load in `FUN_1a23f`. |
 | `.MRW` | 69 | 1,142 unsigned 8-bit mono PCM samples: u16 count, then u32 offset/size pairs. WAV exports in `EXTRACTED/audio/mrw/`. |
 | `.MRS` | 68 | Sequences controlling MRW samples; 48–21,156 bytes. Exact triggering and pitch remain under analysis. |

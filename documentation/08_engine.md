@@ -55,7 +55,7 @@ Player 0's movement ID is at `0x6620e` and player 1's at `0x662a5`; stride is `0
 | `+0x79` | 0/1 marker checked by input flow; exact meaning unresolved |
 | `+0x83..0x97` | AI variables |
 
-Important runtime tables: `DAT_685cc/685d4` are relocated MVS movement pointers; `DAT_68524 + player*4 + move_id*0x14` addresses additional AIP movement records; `DAT_685dc + player*0x10` holds encoded combo input scripts with -1/-2 escapes; `DAT_70314 + player*0x3c` holds three 0x14-byte projectile slots. `DAT_65fe0` stores keyboard bits, six per player. Attacks use bits `0x01/0x20`, forward/back use `0x02/0x04`, up/down use `0x08/0x10`. At separation below `0x3d` (61 pixels), close-range moves add `0x40` to their move ID. [Document 14](14_combat_inputs_and_jumps.md) corrects the earlier input, STS and jump interpretations.
+Important runtime tables: `DAT_685cc/685d4` are relocated MVS movement pointers; `DAT_68524 + player*4 + move_id*0x14` addresses MVS visual records (three attached scripts, projectile motion and impact); `DAT_685dc + player*0x10` holds a sixteen-entry input history; command scripts are in the MVS section at header +8; `DAT_70314 + player*0x3c` holds three 0x14-byte projectile slots. `DAT_65fe0` stores keyboard bits, six per player. Attacks use bits `0x01/0x20`, forward/back use `0x02/0x04`, up/down use `0x08/0x10`. At separation below `0x3d` (61 pixels), close-range moves add `0x40` to their move ID. [Document 14](14_combat_inputs_and_jumps.md) corrects the earlier input, STS and jump interpretations.
 
 ## Known state IDs
 
@@ -100,14 +100,9 @@ Scripted interruption uses `(state & 0xf) < 10` and additional state checks, sub
 
 ## Hits and damage: `FUN_38b72`
 
-1. A received hit adds 2 to super meter `struct+0x70`, or twice that when the attacker is not stunned; the cap is `0x18`.
-2. Non-KO hits add 500 to the victim-indexed score field. Repeated matching states within `0x25` (37) frames increment a combo count.
-3. Base damage is signed attack-box byte 4. `_DAT_70594 = base * multiplier(_DAT_705aa, default 1)`; final damage is `(_DAT_70594 * defense) >> 13`. Defense comes from the victim's state/configuration, including `0x50` for states above `0x4f` and `0x32` for one configuration bit. An attacking fighter stunned in states 4/0x14 deals one eighth damage; the minimum is 1.
-4. Health at `struct+0x2c` falls by that amount in the relevant game mode. At zero, `FUN_3c28c` handles KO; otherwise `FUN_3c595` handles reaction.
-5. The victim's freeze count rises by `_DAT_7059c`. Pushback and repeat-hit rules use `DAT_6624e` and `PTR_62b00[anim]`; airborne pushback uses 5.
-6. The victim receives flag `0x04`. `FUN_39fde`, `FUN_22fc9`, `FUN_3c595` and `FUN_3c28c` choose sounds and reaction states.
+The earlier damage/defense interpretation was incorrect. `FUN_38b72` uses the **attacker's** saved strength, special strength and attack stat. CL2 body byte 4 chooses a reaction region and byte 5 multiplies damage. Signed negative attack bytes select victim states directly. Guard reduction depends on the victim's state; the hit-confirm flag is granted to the attacker.
 
-Some names above remain working interpretations; validate against DOS play before using them as hard game-design rules.
+Direct damage is `max(1, (signed16(base * body_multiplier * strength) * attacker_stat) >> 13)`. Normal strength is 30/60/90, specials normally 80, STS 0x40 uses 50, and super 88 reads a per-robot table. Projectiles use a separate strength/scale formula in `FUN_39b78`. A first special/projectile hit grants the attacker 2 super units when guarded or 4 otherwise, capped at 24, excluding a super itself. See [document 15](15_combat_commands_and_fx.md) for exact record semantics, gates, reactions and current port limitations.
 
 ## AI: `FUN_35a7c` and `FUN_35eb8`
 
@@ -147,4 +142,4 @@ python TOOLS/exr_decompile_at.py <hex-address>
 python TOOLS/exr_disasm_fn.py <hex-address>
 ```
 
-`ANALYSIS/exr_callgraph.txt` lists functions and their callees. Remaining targets include full attack-strength/combo handling, MRS clock/control behavior and integration, AI behavior, round timer, exact movement timing, and visual validation of CL2 box placement. MRS header/event layout, SOS register parameters and sound-quality settings are documented in [the audio investigation](13_audio_investigation.md); attack filtering and jump physics are verified in document 14.
+`ANALYSIS/exr_callgraph.txt` lists functions and their callees. Remaining targets include complete linked grabs and finishing callbacks, MRS clock/control behavior and integration, AI behavior, round timer, exact movement timing, and visual validation of CL2 box placement. MRS header/event layout, SOS register parameters and sound-quality settings are documented in [the audio investigation](13_audio_investigation.md); attack filtering and jump physics are verified in document 14.

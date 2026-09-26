@@ -35,6 +35,12 @@ def palette_for(source, stem, frame_id):
         path = source / "VSFACE.PAL"
         raw = path.read_bytes()[frame_id*210:(frame_id+1)*210]
         label = f"{path.name}@{frame_id*210}"
+    elif stem == "EXTRA":
+        # EXTRA.PAL: eight-byte header, followed by 256 RGB8 entries.
+        raw = (source / "EXTRA.PAL").read_bytes()
+        if len(raw) != 776:
+            raise ValueError("Invalid EXTRA palette size")
+        return raw[8:], "EXTRA.PAL RGB8"
     else:
         raise ValueError(f"Palette not yet assigned for {stem}")
     if len(raw) != 210:
@@ -148,7 +154,7 @@ def main():
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     stems = args.banks or [stem for stem in ([f"RBT{slot}" for slot in ALPHABET] +
-                           [f"RB4{slot}" for slot in ALPHABET] + ["VSFACE", "V4FACE"])
+                           [f"RB4{slot}" for slot in ALPHABET] + ["VSFACE", "V4FACE", "EXTRA"])
                            if (args.source / f"{stem}.ANL").exists()]
     catalog, roster = [], []
     for stem in stems:
@@ -157,6 +163,12 @@ def main():
         if stem.startswith("RBT"):
             roster.append((manifest, preview))
         print(f"{stem}: {manifest['frame_count']} frames, {len(manifest['pages'])} atlas pages", flush=True)
+    if args.banks:
+        # A targeted extraction must retain the rest of the gallery catalog.
+        catalog = []
+        for path in sorted(args.output.glob("*/manifest.json")):
+            m = json.loads(path.read_text(encoding="utf-8"))
+            catalog.append({k:m[k] for k in ("bank", "source_size", "frame_count", "pages")})
     save_json(args.output / "catalog.json", catalog)
     if roster:
         make_roster(roster, args.output)

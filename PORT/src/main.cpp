@@ -3,6 +3,7 @@
 #include "assets.h"
 #include "audio.h"
 #include "fighter.h"
+#include "combat.h"
 #include "frontend.h"
 #include "SDL.h"
 #include "SDL_image.h"
@@ -40,19 +41,6 @@ static void draw_fighter(SDL_Renderer* r, const Fighter& f, int cam_x) {
     SDL_RenderCopyEx(r, page, &src, &dst, 0, nullptr, flip);
 }
 
-// Apply current-movement displacement (one step per frame, scaled x2 by facing).
-static void apply_movement(Fighter& f) {
-    const MvsMove* mv = f.move();
-    if (!mv || f.speed_level < 0 || f.speed_level >= (int)mv->movements.size() ||
-        f.seq_pos < 0 || f.seq_pos >= (int)mv->movements[f.speed_level].size()) return;
-    int s = mv->movements[f.speed_level][f.seq_pos];
-    if (s != 0) {
-        // A step moves along facing; the file encodes facing=1.
-        f.x += s * 2 * f.facing;
-        f.x = SDL_clamp(f.x, arena_min, arena_max);
-    }
-}
-
 int main(int argc, char** argv) {
     std::string assets_dir = "..\\EXTRACTED";
     for (int i = 1; i < argc - 1; i++) {
@@ -68,7 +56,7 @@ int main(int argc, char** argv) {
         fprintf(stderr, "IMG_Init: %s\n", IMG_GetError());
         return 1;
     }
-    SDL_Window* win = SDL_CreateWindow("Rise 2 - port (ossature)",
+    SDL_Window* win = SDL_CreateWindow("Rise 2 : Resurrection Port",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 800,
         SDL_WINDOW_RESIZABLE);
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
@@ -82,6 +70,10 @@ int main(int argc, char** argv) {
     try {
         Frontend frontend(ren, *assets, assets_dir);
         Fighter p1, p2;
+        UiFont fight_font(ren,assets_dir);
+        Combat combat(assets->load_combat(),assets->load_atlas("EXTRA"),assets->load_cl2("EXTRA"));
+        bool move_list = false, second_keyboard = false;
+        int ai_clock = 0;
 
         // Audio : SDL_mixer (convertit automatiquement les echantillons, joue les MP3).
         Mix_Init(MIX_INIT_MP3 | MIX_INIT_OGG | MIX_INIT_FLAC);
@@ -167,21 +159,6 @@ int main(int argc, char** argv) {
             Mix_PlayMusic(fight_tracks[rand() % (int)fight_tracks.size()], -1);
         };
 
-        // Particules d'impact (remplace le systeme fn_22848 le temps d'identifier ses donnees).
-        struct Particle { float x, y, vx, vy; int life; };
-        std::vector<Particle> particles;
-
-        auto spawn_sparks = [&](int x, int y) {
-            for (int i = 0; i < 10; ++i) {
-                const float a = (float)(rand() % 628) / 100.0f;
-                const float sp = 1.5f + (rand() % 30) / 10.0f;
-                particles.push_back({ (float)x, (float)y,
-                                      cosf(a) * sp, sinf(a) * sp - 1.0f,
-                                      6 + rand() % 8 });
-            }
-            // le son du coup = sample 15 de la banque du robot (joue dans le bloc hit)
-        };
-
         // Fond d'arene : charge au demarrage du match (AGJ = l'arene de la capture de reference).
         SDL_Texture* arena = nullptr;
         auto load_arena = [&]() {
@@ -199,6 +176,8 @@ int main(int argc, char** argv) {
                 const std::string bank = std::string("RBT") + slot;
                 double scale = 2.0;
                 fighter = Fighter{};
+                for (int i=0; i<(int)kRoster.size(); ++i)
+                    if (kRoster[i].slot == slot) fighter.robot_id = portrait_index(i);
                 fighter.set_banks(assets->load_atlas(bank), assets->load_mvs(bank));
                 if (fighter.atlas && fighter.atlas->frames.size() > 1 && fighter.atlas->frames[1].rect_h)
                     scale = 156.0 / fighter.atlas->frames[1].rect_h;
@@ -218,7 +197,7 @@ int main(int argc, char** argv) {
             configure(p2, 1, 420, -1);
             load_fighter_sounds(0, frontend.player(0).slot);
             load_fighter_sounds(1, frontend.player(1).slot);
-            particles.clear();
+            combat.reset(); ai_clock = 0; move_list = false;
             load_arena();
             play_random_fight_music();
         };
@@ -260,6 +239,12 @@ int main(int argc, char** argv) {
                                 }
                                 // 1 = calibrate joysticks : a venir
                             }
+                        } else if (ev.key.keysym.sym == SDLK_F1) {
+                            move_list = !move_list;
+                        } else if (ev.key.keysym.sym == SDLK_F2) {
+                            second_keyboard = !second_keyboard;
+                        } else if (ev.key.keysym.sym == SDLK_RETURN && combat.phase() == RoundPhase::Result) {
+                            start_match();
                         } else if (ev.key.keysym.sym == SDLK_ESCAPE) {
                             paused = true;
                             pause_choice = 0;
@@ -275,86 +260,51 @@ int main(int argc, char** argv) {
             if (elapsed > tick_seconds * 2) elapsed = tick_seconds * 2;
             accumulator += elapsed;
             frontend.update(elapsed);
-            uint16_t in1 = 0;
-            if (frontend.screen() == Screen::Fight && !paused) {
+            uint16_t in1 = 0, in2 = 0;
+            if (frontend.screen() == Screen::Fight && !paused && !move_list) {
                 const Uint8* kb = SDL_GetKeyboardState(nullptr);
-                auto down = [&](SDL_Keycode k) { return k != SDLK_UNKNOWN && kb[SDL_GetScancodeFromKey(k)]; };
-                if (down(p1keys[3])) in1 |= IN_RIGHT;
-                if (down(p1keys[2])) in1 |= IN_LEFT;
-                if (down(p1keys[0])) in1 |= IN_UP;
-                if (down(p1keys[1])) in1 |= IN_DOWN;
-                if (down(p1keys[4]) || down(p1keys[5]) || down(p1keys[6])) in1 |= IN_PUNCH;
-                if (down(p1keys[7]) || down(p1keys[8]) || down(p1keys[9])) in1 |= IN_KICK;
-                p1.sample_inputs(in1);
-            }
-            if (frontend.screen() == Screen::Fight && !paused && accumulator >= tick_seconds) {
-                accumulator -= tick_seconds;
-                if (accumulator >= tick_seconds) accumulator = 0.0;
-                update_facing(p1, p2);
-                int old_move1 = p1.move_id, old_move2 = p2.move_id;
-
-                // IA minimale (placeholder du 35eb8) : s'approche, cogne de temps en temps.
-                static int ai_clock = 0;
-                ++ai_clock;
-                uint16_t in2_ai = 0;
-                {
-                    const int dx = std::abs(p2.x - p1.x);
-                    if (dx > 170) {
-                        // marche vers p1 : la droite ecran si p2 est a gauche de p1
-                        in2_ai = (p2.x < p1.x) ? IN_RIGHT : IN_LEFT;
-                    } else if (ai_clock % 60 < 12 && p2.flash == 0) {
-                        in2_ai = IN_PUNCH;
-                    }
-                }
-
-                int t1 = p1.step(in1);
-                int t2 = p2.step(in2_ai);
-                if (t1 >= 0) fprintf(stderr, "p1: m%d -> m%d (entree=%#x)\n", old_move1, t1, in1);
-                if (t2 >= 0) fprintf(stderr, "p2: m%d -> m%d (entree=%#x)\n", old_move2, t2, in2_ai);
-                apply_movement(p1);
-                apply_movement(p2);
-
-                // --- Collisions and damage (simplified fn_381a9 + fn_38b72) ---
-                static std::vector<Cl2Box> att1, bod1, att2, bod2;
-                att1.clear(); bod1.clear(); att2.clear(); bod2.clear();
-                p1.get_boxes(&att1, &bod1);
-                p2.get_boxes(&att2, &bod2);
-                auto overlap = [](const Cl2Box& a, const Cl2Box& b) {
-                    return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-                };
-                auto try_hit = [&](Fighter& att, Fighter& vic, const char* na, const char* nv,
-                                  std::vector<Cl2Box>& A, std::vector<Cl2Box>& B) {
-                    if (att.hit_move == att.move_id || att.flash > 0) return;
-                    for (auto& a : A) {
-                        for (auto& b : B) {
-                            if (!overlap(a, b)) continue;
-                            int dmg = a.damage_or_type;
-                            vic.health = SDL_max(0, vic.health - dmg);
-                            vic.flash = 3; // About 0.13 s visible at the 15 Hz simulation rate.
-                            att.super_meter = SDL_min(24, att.super_meter + 2);
-                            att.hit_move = att.move_id;
-                            spawn_sparks((a.x + b.x) / 2 + (b.w > a.w ? b.w : a.w) / 2,
-                                         (a.y + b.y) / 2);
-                            {
-                                const int bank = (&att == &p1) ? 0 : 1;
-                                if (audio_ok && snd[bank].samples[15]) {
-                                    Mix_PlayChannel(-1, snd[bank].samples[15], 0);
-                                }
-                            }
-                            fprintf(stderr, "HIT %s -> %s : dmg=%d (vie %s=%d)\n", na, nv, dmg, nv, vic.health);
-                            return;
+                auto read_input = [&](const SDL_Keycode* keys) {
+                    auto down = [&](int entry) { return keys[entry] != SDLK_UNKNOWN &&
+                        kb[SDL_GetScancodeFromKey(keys[entry])]; };
+                    uint16_t input = 0;
+                    if (down(3)) input |= IN_RIGHT;
+                    if (down(2)) input |= IN_LEFT;
+                    if (down(0)) input |= IN_UP;
+                    if (down(1)) input |= IN_DOWN;
+                    for (int group=0; group<2; ++group) {
+                        for (int force=0; force<3; ++force) {
+                            if (!down(4+group*3+force)) continue;
+                            input |= group == 0 ? IN_PUNCH : IN_KICK;
+                            input &= ~(IN_MEDIUM|IN_HEAVY);
+                            if (force == 1) input |= IN_MEDIUM;
+                            if (force == 2) input |= IN_HEAVY;
                         }
                     }
+                    return input;
                 };
-                try_hit(p1, p2, "p1", "p2", att1, bod2);
-                try_hit(p2, p1, "p2", "p1", att2, bod1);
-                if (p1.flash > 0) p1.flash--;
-                if (p2.flash > 0) p2.flash--;
-                // particules
-                for (auto& pt : particles) { pt.x += pt.vx; pt.y += pt.vy; pt.vy += 0.15f; --pt.life; }
-                particles.erase(std::remove_if(particles.begin(), particles.end(),
-                    [](const Particle& p) { return p.life <= 0; }), particles.end());
+                in1 = read_input(p1keys);
+                if (second_keyboard) in2 = read_input(p2keys);
+                p1.sample_inputs(in1);
+                if (second_keyboard) p2.sample_inputs(in2);
             }
+            if (frontend.screen() == Screen::Fight && !paused && !move_list && accumulator >= tick_seconds) {
+                accumulator -= tick_seconds;
+                if (accumulator >= tick_seconds) accumulator = 0.0;
+                // Basic sparring AI; original AIP decision rules are still separate.
+                ++ai_clock;
+                if (!second_keyboard && combat.phase() == RoundPhase::Fighting) {
+                    const int distance = std::abs(p2.x-p1.x);
+                    if (distance > 170) in2 = p2.x < p1.x ? IN_RIGHT : IN_LEFT;
+                    else if (ai_clock % 60 < 12 && p2.flash == 0) in2 = IN_PUNCH;
+                }
+                combat.tick(p1,p2,in1,in2);
+                for (const auto& hit : combat.hits()) {
+                    if (audio_ok && snd[hit.attacker].samples[15])
+                        Mix_PlayChannel(-1,snd[hit.attacker].samples[15],0);
+                    logf("HIT p%d damage=%d blocked=%d projectile=%d hp=%d/%d\n",
+                         hit.attacker+1,hit.damage,hit.blocked,hit.projectile,p1.health,p2.health);
+                }
+            } else if (paused || move_list) accumulator = 0.0;
 
             if (frontend.screen() == Screen::Fight) {
                 // camera : suit le point median, bornee aux 160 px de defilement (arene 800 large)
@@ -373,14 +323,7 @@ int main(int argc, char** argv) {
                 draw_fighter(ren, p1, cam_x);
                 draw_fighter(ren, p2, cam_x);
 
-                // particules d'impact
-                SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
-                for (const auto& pt : particles) {
-                    SDL_SetRenderDrawColor(ren, 255, 230, 120, (int)(255 * pt.life / 14));
-                    SDL_Rect px{ (int)pt.x - cam_x, (int)pt.y, 3, 3 };
-                    SDL_RenderFillRect(ren, &px);
-                }
-                SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
+                combat.render(ren,p1,p2,cam_x);
 
                 // --- HUD: health bars and super meters ---
                 {
@@ -408,6 +351,61 @@ int main(int argc, char** argv) {
                         SDL_RenderFillRect(ren, &f2r);
                     }
                     SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
+                }
+
+                const SDL_Color white{235,240,255,255}, yellow{255,218,72,255};
+                fight_font.draw(second_keyboard ? "F1 MOVES   F2: P2 KEYBOARD" : "F1 MOVES   F2: P2 CPU",
+                                320,378,white,7,11,true);
+                if (combat.phase() == RoundPhase::FinishWindow) {
+                    fight_font.draw("P"+std::to_string(combat.winner()+1)+" - FINISH YOUR OPPONENT!",
+                                    320,54,yellow,10,15,true);
+                    fight_font.draw("F1: YOUR FINISHING COMMAND",320,72,white,7,11,true);
+                } else if (combat.phase() == RoundPhase::Finishing) {
+                    fight_font.draw("FINISHING",320,54,yellow,12,18,true);
+                } else if (combat.phase() == RoundPhase::Ending || combat.phase() == RoundPhase::Result) {
+                    fight_font.draw(combat.winner()<0 ? "DOUBLE KO" :
+                                    "P"+std::to_string(combat.winner()+1)+" WINS",
+                                    320,54,yellow,12,18,true);
+                    if (combat.phase() == RoundPhase::Result)
+                        fight_font.draw("ENTER: REMATCH   ESC: MENU",320,76,white,8,12,true);
+                }
+                if (move_list) {
+                    SDL_SetRenderDrawBlendMode(ren,SDL_BLENDMODE_BLEND);
+                    SDL_SetRenderDrawColor(ren,0,0,0,235);
+                    SDL_Rect full{0,45,640,325}; SDL_RenderFillRect(ren,&full);
+                    SDL_SetRenderDrawBlendMode(ren,SDL_BLENDMODE_NONE);
+                    fight_font.draw("ROBOT COMMANDS - F1 TO RETURN",320,50,yellow,9,14,true);
+                    const Fighter* fighters[] = {&p1,&p2};
+                    const SDL_Keycode* keys[] = {p1keys,p2keys};
+                    for (int side=0; side<2; ++side) {
+                        const auto& f = *fighters[side]; const int x = 12+side*320;
+                        fight_font.draw("P"+std::to_string(side+1)+" "+frontend.player(side).name,
+                                        x,72,white,8,12);
+                        std::string controls = "P:";
+                        for (int i=4; i<10; ++i) {
+                            if (i==7) controls += " K:";
+                            controls += SDL_GetKeyName(keys[side][i]);
+                            if (i!=6 && i!=9) controls += "/";
+                        }
+                        fight_font.draw(controls,x,87,white,6,10);
+                        int row=0;
+                        for (const auto& c : f.mvs->commands) {
+                            std::string label = std::to_string(c.target)+" ";
+                            if (!command_reachable(c)) label += "NO INPUT ";
+                            else if (!f.has_action(c.target)) label += "NO DATA ";
+                            else if (command_shadowed(*f.mvs,c)) label += "ORDER ";
+                            else if (c.target==88) label += "SUPER ";
+                            else if (c.target>=90) label += "LOCKED ";
+                            else if (c.target>=48 && c.target<=58 && !(c.target&1))
+                                label += combat.usable_finisher(f,c.target) ? "FINISH " : "NO DATA ";
+                            label += command_notation(c);
+                            fight_font.draw(label,x,104+row++*13,c.target==88 ? yellow : white,5,10);
+                        }
+                    }
+                    fight_font.draw("F/B: TOWARD/AWAY   U/D: UP/DOWN   N: RELEASE   *: ANY INPUT",
+                                    320,332,white,6,10,true);
+                    fight_font.draw("P/K: PUNCH/KICK   KEYS: LIGHT / MEDIUM / HEAVY",320,347,white,7,11,true);
+                    fight_font.draw("ORDER: EARLIER COMMAND TAKES PRIORITY",320,360,white,6,10,true);
                 }
 
                 // --- menu pause (Echap) ---

@@ -2,6 +2,14 @@
 
 This is a chronological research log. Early interpretations are preserved here as history; documents 05, 07, 08, 09, and 10 describe the corrected current understanding. In particular, early claims that MVS held sound and MRW held video were disproved. The French originals remain in the local Git history; this public version records their findings in English.
 
+## Session 30 — 2026-09-26: robot commands, original FX and finishing phase
+
+The user requested character attacks/combinations, combat effects and finishings. Ghidra and the private executable revealed the per-bank command section and five-pointer effect directory in MVS, the EXTRA palette/atlas, original impact scripts, three projectile slots and signed CL2 victim reactions. The old description of this MVS directory as AIP was wrong. Direct-hit damage was also corrected: strength and the configuration stat belong to the attacker, with the body box supplying a multiplier and reaction region.
+
+The runtime now retains six attack keys, recognizes robot-specific command histories, gates supers and stolen powers, renders original impact/attached/projectile/impact sprites, applies reactions and guard damage, and provides KO, a finishing window, defeat/victory and rematch. F1 displays commands and F2 enables the second configured keyboard. Empty/impossible/ordered-prefix commands are reported. Native RBTY execution confirms that earlier normal commands mask its super and finishing command; the bank is not reordered. Profile-specific roster cycling and missing default keys were corrected during checks.
+
+Both editions' command/FX structural checks passed: 306 reachable entries in 28 robot banks and 326 in 30 robot banks. Synthetic combat checks and original-instruction command/projectile checks passed. Shared headless combat rendered a real projectile explosion and WAR's finishing with a signed CL2 death reaction. Existing attack/jump/crossing behavior remains covered. Full linked grabs, native round timing, stolen-power progression, periodic damage smoke and some cinematic callbacks remain open. See document 15 for the exact format, implementation and evidence; these automated checks do not replace user gameplay validation.
+
 ## Session 29 — 2026-09-26: stable crossing and DOS turns
 
 The user confirmed the attack/jump correction, then reported repeated mirroring when passing the opponent, especially in the air. The port flipped facing while retaining the same diagonal-jump state, reversing horizontal travel and repeatedly crossing back. Ghidra and original-instruction execution confirmed that `FUN_25615` runs once before motion, exchanges jumps 34/35 on a turn, locks ordinary attacks, and uses ground-turn states 68/69. `FUN_26321` preserves animation progress and clamps an overlong frame; the earlier engine note claiming a restart was corrected.

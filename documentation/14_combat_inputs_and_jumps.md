@@ -50,14 +50,14 @@ The MVS control byte at descriptor `+0x1c` is handled by `FUN_21baf`:
 |---|---|
 | `0x01` | Hold the last sequence frame at the end marker |
 | `0x02` | Automatic transition to byte `+0x1d`; wait if airborne or still rising |
-| `0x04` | Clear saved attack-strength byte |
+| `0x04` | Clear current attack-strength byte; saved movement strength remains separate |
 | `0x08` | Resume the sequence at byte `+0x1e` |
 | `0x10` | Count completions; after byte `+0x1f` repeats, use automatic target/resume |
 | `0x20` | Apply horizontal steering through `FUN_23138` |
 | `0x40` | Initialize signed vertical impulse from byte `+0x1f` and gravity from STS |
 | `0x80` | Suppress immediate automatic transition in the landing helper |
 
-The port now follows hold, automatic return, resume and repeat controls, plus the vertical impulse and landing rules. It keeps the final visible air frame until landing rather than rendering the end marker or restarting the whole jump. Complete scripted combos, aerial steering and the remaining STS properties still need porting.
+The port follows hold, automatic return, resume and repeat controls, plus the vertical impulse and landing rules. It keeps the final visible air frame until landing rather than rendering the end marker or restarting the whole jump. [Document 15](15_combat_commands_and_fx.md) adds scripted commands, three attack strengths, horizontal steering and hit-confirm gates, with their remaining limits.
 
 ## Vertical motion and landing
 
