@@ -14,6 +14,8 @@ PACKAGES = (
      "6e524b5f0e3ecd9fe3b439336b5e7c3fe597e8823e8e62c8e3074d335e9ca7d9"),
     ("SDL2_image-2.8.4", "https://github.com/libsdl-org/SDL_image/releases/download/release-2.8.4/SDL2_image-devel-2.8.4-VC.zip",
      "ae2a3e85bee51086184d3f72a47086c61f2acec86984b33f8bb28dab23e5a0d0"),
+    ("SDL2_mixer-2.8.0", "https://github.com/libsdl-org/SDL_mixer/releases/download/release-2.8.0/SDL2_mixer-devel-2.8.0-VC.zip",
+     "47a5713937f8d8b903a9c5555fef3ec73a793ef95abdd078773fc11fcb00ec8a"),
     ("json.hpp", "https://raw.githubusercontent.com/nlohmann/json/v3.11.3/single_include/nlohmann/json.hpp",
      "9bea4c8066ef4a1c206b2be5a36302f8926f7fdc6087af5d20b417d0cf103ea6"),
 )
