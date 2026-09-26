@@ -168,19 +168,59 @@ int main(int argc, char** argv) {
                       "capture FX projectile et explosion d'origine");
         }
         check(projectile_hits==1 && p2.health<120,"projectile original : un impact et des degats");
-        const auto* war_atlas=assets.load_atlas("RBTC");
-        const auto* war_moves=assets.load_mvs("RBTC");
+        // The first source robot is A (Cyborg), not 0 (Surpressor). Exercise
+        // the user's actual quarter-circle punch, including the mirrored FX.
+        const auto* cyborg_atlas=assets.load_atlas("RBTA");
+        const auto* cyborg_moves=assets.load_mvs("RBTA");
+        for (int direction : {1,-1}) {
+            p1=Fighter{};p2=Fighter{};
+            p1.set_banks(cyborg_atlas,cyborg_moves);p1.cl2=assets.load_cl2("RA");p1.robot_id=0;
+            p2.set_banks(ab1,mv1);p2.cl2=cl1;p2.robot_id=26;
+            p1.x=direction>0 ? 140:500;p2.x=direction>0 ? 580:60;
+            p1.facing=direction;p2.facing=-direction;
+            p1.sprite_scale=156.0/cyborg_atlas->frames[1].rect_h;
+            p2.sprite_scale=156.0/ab1->frames[1].rect_h;
+            combat.reset();
+            const int forward=direction>0 ? IN_RIGHT:IN_LEFT;
+            for (int input : {int(IN_DOWN),int(IN_DOWN)|forward,forward,int(IN_PUNCH)}) p1.sample_inputs(input);
+            bool colored_fx=false;
+            for (int tick=0;tick<20;++tick) {
+                combat.tick(p1,p2,tick==0 ? IN_PUNCH:0,0);
+                if (tick==0) check(p1.move_id==81,"Cyborg : bas, diagonale, avant, poing declenche le vrai uppercut");
+                if (tick!=2 && tick!=5) continue;
+                SDL_SetRenderDrawColor(ren,0,0,0,255);SDL_RenderClear(ren);
+                combat.render(ren,p1,p2,0);
+                SDL_RenderPresent(ren);
+                for (int y=0;y<surface->h;++y) for (int x=0;x<surface->w;++x) {
+                    Uint8 r,g,b,a;
+                    const auto* row=(const Uint32*)((const Uint8*)surface->pixels+y*surface->pitch);
+                    SDL_GetRGBA(row[x],surface->format,&r,&g,&b,&a);
+                    colored_fx|=r>200 && g>200 && b>200;
+                }
+                if (arena_tex) {SDL_Rect src{80,0,640,400},dst{0,0,640,400};SDL_RenderCopy(ren,arena_tex,&src,&dst);}
+                draw_fighter(p1);draw_fighter(p2);combat.render(ren,p1,p2,0);
+                check(IMG_SavePNG(surface,(out_dir+"/cyborg_uppercut_"+std::to_string(direction)+"_"+std::to_string(tick)+".png").c_str())==0,
+                      "capture uppercut Cyborg et couleurs FX");
+            }
+            check(colored_fx,"le FX de Cyborg conserve ses details blancs, sans aplat vert");
+        }
+        const auto* prime8_atlas=assets.load_atlas("RBTC");
+        const auto* prime8_moves=assets.load_mvs("RBTC");
+        for (bool easy : {false,true}) {
         p1=Fighter{};p2=Fighter{};
-        p1.set_banks(war_atlas,war_moves);p1.cl2=assets.load_cl2("RC");p1.robot_id=2;p1.x=220;
+        p1.set_banks(prime8_atlas,prime8_moves);p1.cl2=assets.load_cl2("RC");p1.robot_id=2;p1.x=220;
         p2.set_banks(ab1,mv1);p2.cl2=cl1;p2.robot_id=26;p2.x=320;p2.facing=-1;p2.health=1;
-        p1.sprite_scale=156.0/war_atlas->frames[1].rect_h;
+        p1.sprite_scale=156.0/prime8_atlas->frames[1].rect_h;
         p2.sprite_scale=156.0/ab1->frames[1].rect_h;
         combat.reset();
+        combat.set_easy_finishings(easy);
         for (int tick=0;tick<40 && combat.phase()==RoundPhase::Fighting;++tick)
             combat.tick(p1,p2,tick==0 ? IN_PUNCH : 0,0);
         check(combat.phase()==RoundPhase::FinishWindow,"KO reel : fenetre de finishing");
         combat.tick(p1,p2,0,0);
-        for (const auto& c : war_moves->commands) if (c.target==56)
+        latest=0;
+        if (easy) combat.sample_attack_buttons(1<<5,0); // rebound heavy kick
+        else for (const auto& c : prime8_moves->commands) if (c.target==56)
             for (auto it=c.inputs.rbegin();it!=c.inputs.rend();++it) {
                 latest=*it==254 ? 0 : *it;p1.sample_inputs(latest);
             }
@@ -192,11 +232,13 @@ int main(int argc, char** argv) {
             if (tick==15 || tick==45 || tick==75) {
                 if (arena_tex) {SDL_Rect src{80,0,640,400},dst{0,0,640,400};SDL_RenderCopy(ren,arena_tex,&src,&dst);}
                 draw_fighter(p1);draw_fighter(p2);combat.render(ren,p1,p2,0);
-                check(IMG_SavePNG(surface,(out_dir+"/finishing_"+std::to_string(tick)+".png").c_str())==0,
+                check(IMG_SavePNG(surface,(out_dir+(easy ? "/easy_finishing_":"/finishing_")+std::to_string(tick)+".png").c_str())==0,
                       "capture finishing original");
             }
         }
-        check(started && death,"finishing reel : commande et reaction CL2 de mort");
+        check(started && death,easy ? "finishing facile reel : une touche et reaction CL2 de mort":
+                                    "finishing reel : commande et reaction CL2 de mort");
+        }
         SDL_DestroyTexture(arena_tex);
         if (arena) SDL_FreeSurface(arena);
         printf("       hits=%d ; vie p2 : %d -> %d\n", hits, health_before, first_health_after);

@@ -74,6 +74,10 @@ void Fighter::enter_move(int target, int first_frame) {
     if (speed_level >= (int)move()->sequences.size()) speed_level = 0;
 }
 
+void Fighter::discard_inputs() {
+    pressed_inputs=0; input_events.clear(); history.fill(240); history_age=0;
+}
+
 void Fighter::force_move(int target, int first_frame) { enter_move(target, first_frame); }
 
 void Fighter::stop_vertical() {

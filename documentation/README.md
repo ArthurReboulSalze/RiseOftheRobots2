@@ -17,9 +17,11 @@ Director's Cut Disc 1 supplies the game, 105 ANI files and CD tracks 02–10. Di
 | [09_remaining_formats.md](09_remaining_formats.md) | MRS/CHRSET, audio modes and additional ANI |
 | [10_port.md](10_port.md) | Build, architecture, current behavior and remaining work |
 | [11_source_imports.md](11_source_imports.md) | Private sources, edition handling, audio tracks and checks |
+| [12_ui_flow.md](12_ui_flow.md) | English menu flow, options, key mapping and reference-screen limits |
 | [13_audio_investigation.md](13_audio_investigation.md) | Verified DOS quality settings, SOS parameters, modern conversion and MRS structure |
 | [14_combat_inputs_and_jumps.md](14_combat_inputs_and_jumps.md) | DOS attack filtering, STS gravity, jump trajectory, landing, crossing and port regression checks |
 | [15_combat_commands_and_fx.md](15_combat_commands_and_fx.md) | Attack strengths, robot commands, original FX/projectiles, damage reactions and initial finishing integration |
+| [16_options_filters_and_fx.md](16_options_filters_and_fx.md) | Saved volumes, finishing shortcuts, retro filters, Cyborg palette and projectile placement corrections |
 
 Working directories:
 

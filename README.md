@@ -83,7 +83,11 @@ ctest --test-dir PORT/build -C Release --output-on-failure
 .\PORT\build\Release\rotr2.exe --assets "$PWD/LOCAL/my-game/EXTRACTED"
 ```
 
-The current flow shows the logos, title screen, character selection and an initial fight. Enter confirms and Escape goes back. At selection, the arrow keys control player 1 and A/D control player 2. Combat uses the keys shown in **KEY MAPPING**, including three punch strengths and three kick strengths. **F1** pauses and displays the selected robots' commands; **F2** switches player 2 between basic CPU sparring and its configured keyboard. After KO, use an available finishing command before the window expires. Enter after the result starts a rematch. The older edition has 28 robots; Director's Cut adds two more.
+The current flow shows the logos, title screen, character selection and an initial fight. Enter confirms and Escape goes back. At selection, the arrow keys control player 1 and A/D control player 2. The older edition has 28 robots; Director's Cut adds two more.
+
+Open **OPTIONS** from the title menu to adjust music and game volume separately, configure **KEY MAPPING**, enable **EASY FINISHINGS**, or choose a display filter: original pixels, bilinear, Scale2x, Scale3x, xBR smoothing or a soft CRT effect. Settings are saved for the selected private profile. Arrow keys select and adjust; Enter changes or opens a setting; Escape returns.
+
+Combat uses the configured light, medium and heavy punch/kick keys. **F1** pauses and displays the selected robots' commands; **F2** switches player 2 between basic CPU sparring and its configured keyboard. After KO, enter an available finishing command, or press a configured attack key with easy finishings enabled. A robot with one available finishing accepts any of the six attack keys; multiple variants follow light, medium and heavy order. Enter after the result starts a rematch. See [options and FX corrections](documentation/16_options_filters_and_fx.md) for details.
 
 The port remains under development: full DOS combat timing, linked grabs and some finishing callbacks are incomplete, some menu options are placeholders, and the original digital-music sequencer remains to implement. Original impact sprites, attached FX and scripted projectiles now run; see [combat commands and FX](documentation/15_combat_commands_and_fx.md). Imported CD tracks already play. Effects use filtered conversion to 44.1 kHz 16-bit stereo with the original impact gain; see the [verified DOS audio investigation](documentation/13_audio_investigation.md). Only `LLOGO`, `END` and `ENL` are automatically converted into video frames. Other ANI files and bonus content remain in the private profile for future work.
 
@@ -113,4 +117,4 @@ After an import, `PORT/build/Release/rotr2_asset_smoke.exe LOCAL/my-game/EXTRACT
 
 Automated tests build small synthetic disc images and samples; they need no original game data. The Git index audit allows only known code and documentation paths plus the project banner. `SRC`, `LOCAL`, `EXTRACTED`, captures, Ghidra projects, builds and downloaded dependencies are excluded.
 
-Before release, the physical-CD path still needs real hardware validation. SDL2/SDL2_image, nlohmann/json, Pillow and pycdlib retain their own licenses; see their distributions.
+Before release, the physical-CD path still needs real hardware validation. SDL2/SDL2_image, nlohmann/json, Pillow and pycdlib retain their own licenses; see their distributions. The xBR implementation retains Hyllian's MIT copyright and permission notice in `PORT/src/filters.cpp`.

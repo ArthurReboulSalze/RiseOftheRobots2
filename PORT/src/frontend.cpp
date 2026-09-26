@@ -12,9 +12,10 @@ constexpr SDL_Color grey{92, 101, 120, 255};
 constexpr SDL_Color cyan{142, 222, 248, 255};
 constexpr SDL_Color red{255, 60, 40, 255};
 
-constexpr const char* kTitleItems[5] = {"START", "KEY MAPPING", "HIGH SCORE", "CREDITS", "QUIT"};
+constexpr const char* kTitleItems[5] = {"START", "OPTIONS", "HIGH SCORE", "CREDITS", "QUIT"};
 constexpr const char* kEntryNames[10] = {
-    "UP", "DOWN", "LEFT", "RIGHT", "01", "02", "03", "P1", "P2", "P3"};
+    "UP", "DOWN", "LEFT", "RIGHT", "PUNCH LIGHT", "PUNCH MEDIUM", "PUNCH HEAVY",
+    "KICK LIGHT", "KICK MEDIUM", "KICK HEAVY"};
 
 // Table scancodes DOS set 1 -> nom affichable.
 struct DosKeyName { uint16_t code; const char* name; };
@@ -29,8 +30,8 @@ constexpr DosKeyName kDosKeyNames[] = {
     {0x2A, "LSHIFT"}, {0x2B, "BACKSLASH"}, {0x2C, "Z"}, {0x2D, "X"}, {0x2E, "C"},
     {0x2F, "V"}, {0x30, "B"}, {0x31, "N"}, {0x32, "M"}, {0x33, ","}, {0x34, "."},
     {0x35, "/"}, {0x36, "RSHIFT"}, {0x38, "ALT"}, {0x39, "SPACE"},
-    {0x3A, "F1"}, {0x3B, "F2"}, {0x3C, "F3"}, {0x3D, "F4"}, {0x3E, "F5"}, {0x3F, "F6"},
-    {0x40, "F7"}, {0x41, "F8"}, {0x42, "F9"}, {0x43, "F10"}, {0x44, "F11"}, {0x45, "F12"},
+    {0x3B, "F1"}, {0x3C, "F2"}, {0x3D, "F3"}, {0x3E, "F4"}, {0x3F, "F5"}, {0x40, "F6"},
+    {0x41, "F7"}, {0x42, "F8"}, {0x43, "F9"}, {0x44, "F10"}, {0x57, "F11"}, {0x58, "F12"},
     {0x47, "HOME"}, {0x48, "UP"}, {0x49, "PGUP"}, {0x4B, "LEFT"}, {0x4C, "KP5"},
     {0x4D, "RIGHT"}, {0x4F, "END"}, {0x50, "DOWN"}, {0x51, "PGDN"},
     {0x52, "INS"}, {0x53, "DEL"},
@@ -53,7 +54,7 @@ constexpr SdlDosPair kSdlToDos[] = {
     {SDLK_BACKQUOTE, 0x29}, {SDLK_COMMA, 0x33}, {SDLK_PERIOD, 0x34}, {SDLK_SLASH, 0x35},
     {SDLK_F1, 0x3B}, {SDLK_F2, 0x3C}, {SDLK_F3, 0x3D}, {SDLK_F4, 0x3E}, {SDLK_F5, 0x3F},
     {SDLK_F6, 0x40}, {SDLK_F7, 0x41}, {SDLK_F8, 0x42}, {SDLK_F9, 0x43}, {SDLK_F10, 0x44},
-    {SDLK_F11, 0x45}, {SDLK_F12, 0x46}, {SDLK_RIGHT, 0x4D}, {SDLK_LEFT, 0x4B},
+    {SDLK_F11, 0x57}, {SDLK_F12, 0x58}, {SDLK_RIGHT, 0x4D}, {SDLK_LEFT, 0x4B},
     {SDLK_DOWN, 0x50}, {SDLK_UP, 0x48}, {SDLK_HOME, 0x47}, {SDLK_END, 0x4F},
     {SDLK_PAGEUP, 0x49}, {SDLK_PAGEDOWN, 0x51}, {SDLK_INSERT, 0x52}, {SDLK_DELETE, 0x53},
     {SDLK_KP_1, 0x4F}, {SDLK_KP_2, 0x50}, {SDLK_KP_3, 0x51}, {SDLK_KP_4, 0x4B},
@@ -88,10 +89,13 @@ Frontend::Frontend(SDL_Renderer* renderer, Assets& assets, const std::string& as
       title_(assets.load_ggf("MAINSCR")),
       back_(assets.load_ggf("BACK")), hs_(assets.load_ggf("HS")),
       credits_(assets.load_ggf("CREDITS")), versus_(assets.load_ggf("VS")),
+      options_background_(assets.load_ggf("OPTIONS")),
+      options_path_(assets_dir + "/ui/port_options.json"),
       cfg_path_(assets_dir + "/ui/rise2.cfg") {
     if (intro_->frames.empty() || (portraits_->frames.size() != 28 && portraits_->frames.size() != 30))
         throw std::runtime_error("Incomplete intro ANI or VSFACE portraits");
     load_keymap();
+    settings_.load(options_path_);
     load_hiscores();
 }
 
@@ -179,8 +183,7 @@ void Frontend::key(SDL_Keycode key) {
         else if (key == SDLK_RETURN || key == SDLK_KP_ENTER || key == SDLK_SPACE) {
             switch (title_choice_) {
                 case 0: screen_ = Screen::Select; break;
-                case 1: kmap_player_ = 0; kmap_entry_ = 0; kmap_editing_ = false;
-                        screen_ = Screen::KeyMapping; break;
+                case 1: options_choice_ = 0; screen_ = Screen::Options; break;
                 case 2: screen_ = Screen::HighScore; break;
                 case 3: screen_ = Screen::Credits; break;
                 default: quit_requested_ = true; break;
@@ -193,8 +196,28 @@ void Frontend::key(SDL_Keycode key) {
         }
         return;
     }
+    if (screen_ == Screen::Options) {
+        if (key == SDLK_ESCAPE) screen_ = Screen::Title;
+        else if (key == SDLK_UP) options_choice_ = (options_choice_ + 5) % 6;
+        else if (key == SDLK_DOWN) options_choice_ = (options_choice_ + 1) % 6;
+        else if (key == SDLK_LEFT || key == SDLK_RIGHT || key == SDLK_RETURN || key == SDLK_KP_ENTER || key == SDLK_SPACE) {
+            const int direction = key == SDLK_LEFT ? -1 : 1;
+            switch (options_choice_) {
+            case 0: settings_.music_volume = std::clamp(settings_.music_volume + direction*5,0,100); break;
+            case 1: settings_.game_volume = std::clamp(settings_.game_volume + direction*5,0,100); break;
+            case 2: settings_.easy_finishings = !settings_.easy_finishings; break;
+            case 3: settings_.filter = static_cast<DisplayFilter>((static_cast<int>(settings_.filter) +
+                    direction + static_cast<int>(DisplayFilter::Count)) % static_cast<int>(DisplayFilter::Count)); break;
+            case 4:
+                if (key == SDLK_LEFT || key == SDLK_RIGHT) return;
+                kmap_player_ = 0; kmap_entry_ = 0; kmap_editing_ = false; screen_ = Screen::KeyMapping; return;
+            case 5: screen_ = Screen::Title; return;
+            }
+            if (!settings_.save(options_path_)) fprintf(stderr,"Could not save port options: %s\n",options_path_.c_str());
+        }
+        return;
+    }
     if (screen_ == Screen::KeyMapping) {
-        fprintf(stderr, "KEYMAP key=%d editing=%d player=%d entry=%d\n", (int)key, (int)kmap_editing_, kmap_player_, kmap_entry_);
         if (kmap_editing_) {
             // n'importe quelle touche (sauf Esc) = affectation
             if (key == SDLK_ESCAPE) {
@@ -215,7 +238,7 @@ void Frontend::key(SDL_Keycode key) {
             kmap_player_ = 1 - kmap_player_;
         else if (key == SDLK_RETURN || key == SDLK_KP_ENTER || key == SDLK_SPACE)
             kmap_editing_ = true;
-        else if (key == SDLK_ESCAPE) screen_ = Screen::Title;
+        else if (key == SDLK_ESCAPE) screen_ = Screen::Options;
         return;
     }
     if (screen_ == Screen::HighScore || screen_ == Screen::Credits) {
@@ -284,7 +307,7 @@ void Frontend::draw_keymapping() const {
             const int y = 96 + e * 26;
             const bool selected = kmap_player_ == p && kmap_entry_ == e;
             const SDL_Color label_color = selected ? gold : blue;
-            font_.draw(kEntryNames[e], cx - 130, y, label_color, 12, 17, false);
+            font_.draw(kEntryNames[e], cx - 130, y, label_color, 9, 17, false);
             const uint16_t dos = keymap_[p][e];
             std::string value = kmap_editing_ && selected
                 ? std::string("<PRESS A KEY>")
@@ -294,6 +317,35 @@ void Frontend::draw_keymapping() const {
     }
     font_.draw("ARROWS SELECT   ENTER ASSIGN   TAB PLAYER   ESC BACK",
                320, 372, blue, 9, 14, true);
+}
+
+void Frontend::draw_options() const {
+    draw_background(options_background_);
+    SDL_SetRenderDrawBlendMode(renderer_,SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer_,0,0,0,210);
+    SDL_Rect panel{35,40,570,318}; SDL_RenderFillRect(renderer_,&panel);
+    SDL_SetRenderDrawBlendMode(renderer_,SDL_BLENDMODE_NONE);
+    font_.draw("OPTIONS",320,14,gold,16,21,true);
+    const char* labels[] = {"MUSIC VOLUME","GAME VOLUME","EASY FINISHINGS","DISPLAY FILTER","KEY MAPPING","BACK"};
+    const std::string values[] = {std::to_string(settings_.music_volume)+"%",
+        std::to_string(settings_.game_volume)+"%",settings_.easy_finishings ? "ON" : "OFF",
+        filter_name(settings_.filter),"ENTER", "ENTER"};
+    for (int i=0;i<6;++i) {
+        const int y=64+i*40; const auto color=i==options_choice_ ? gold : blue;
+        font_.draw(i==options_choice_ ? ">" : "",47,y,color,10,16);
+        font_.draw(labels[i],68,y,color,11,16);
+        font_.draw(values[i],365,y,color,11,16);
+        if (i<2) {
+            SDL_Rect bar{365,y+20,200,3}; SDL_SetRenderDrawColor(renderer_,60,65,80,255);
+            SDL_RenderFillRect(renderer_,&bar); bar.w=2*(i==0 ? settings_.music_volume : settings_.game_volume);
+            SDL_SetRenderDrawColor(renderer_,color.r,color.g,color.b,255); SDL_RenderFillRect(renderer_,&bar);
+        }
+    }
+    font_.draw("EASY FINISHINGS: ATTACK BUTTONS AFTER KO",320,322,cyan,9,13,true);
+    // Cover the original bitmap's localized footer before drawing our controls.
+    SDL_SetRenderDrawColor(renderer_,0,0,0,255);
+    SDL_Rect footer{24,362,592,30}; SDL_RenderFillRect(renderer_,&footer);
+    font_.draw("ARROWS SELECT / ADJUST   ENTER CHANGE   ESC BACK",320,372,blue,9,14,true);
 }
 
 void Frontend::draw_highscore() const {
@@ -436,6 +488,7 @@ void Frontend::render() const {
         SDL_Rect target{0, 0, 640, 400};
         SDL_RenderCopy(renderer_, intro_->frames[intro_frame_], nullptr, &target);
     } else if (screen_ == Screen::Title) draw_title();
+    else if (screen_ == Screen::Options) draw_options();
     else if (screen_ == Screen::KeyMapping) draw_keymapping();
     else if (screen_ == Screen::HighScore) draw_highscore();
     else if (screen_ == Screen::Credits) draw_credits();

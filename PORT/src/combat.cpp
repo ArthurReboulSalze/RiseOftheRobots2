@@ -28,6 +28,7 @@ void Combat::reset() {
     death_animation_ = false;
     serial_.fill(~0u); attached_ = {}; projectiles_ = {}; impacts_ = {};
     push_.fill(0); push_direction_.fill(0); next_impact_ = 0; hits_.clear();
+    held_buttons_.fill(0); pressed_buttons_.fill(0);
 }
 
 int Combat::slots(int side) const {
@@ -37,6 +38,25 @@ int Combat::slots(int side) const {
 
 bool Combat::usable_finisher(const Fighter& fighter, int target) const {
     return target>=48 && target<=58 && !(target&1) && fighter.has_action(target);
+}
+
+std::vector<int> Combat::finishers(const Fighter& fighter) const {
+    std::vector<int> out;
+    if (!fighter.mvs) return out;
+    for (const auto& command : fighter.mvs->commands)
+        if (usable_finisher(fighter,command.target) &&
+            std::find(out.begin(),out.end(),command.target)==out.end()) out.push_back(command.target);
+    std::sort(out.begin(),out.end());
+    return out;
+}
+
+void Combat::sample_attack_buttons(uint8_t a,uint8_t b) {
+    const uint8_t buttons[]={a,b};
+    for (int side=0;side<2;++side) {
+        // A held knockout punch must not automatically choose a finishing.
+        if (!held_buttons_[side]) pressed_buttons_[side]|=buttons[side]&63;
+        held_buttons_[side]=buttons[side]&63;
+    }
 }
 
 void Combat::sync_move(Fighter& fighter, int side) {
@@ -159,6 +179,7 @@ void Combat::tick(Fighter& a, Fighter& b, uint16_t input_a, uint16_t input_b) {
     for (auto& i : impacts_) i.advance();
     Fighter* fighters[] = {&a,&b};
     uint16_t inputs[] = {input_a,input_b};
+    const auto easy_buttons=pressed_buttons_; pressed_buttons_.fill(0);
     if (phase_ == RoundPhase::Fighting || phase_ == RoundPhase::FinishWindow) update_facing(a,b);
     for (int side = 0; side < 2; ++side) {
         auto& f = *fighters[side];
@@ -178,8 +199,23 @@ void Combat::tick(Fighter& a, Fighter& b, uint16_t input_a, uint16_t input_b) {
             } else if (!back && (f.move_id == 4 || f.move_id == 20)) f.force_move(f.move_id == 20 ? 16 : 0);
         }
         if ((phase_ == RoundPhase::FinishWindow && side != winner_) ||
-            phase_ == RoundPhase::Finishing || phase_ == RoundPhase::Ending) inputs[side] = 0;
+            phase_ == RoundPhase::Finishing || phase_ == RoundPhase::Ending) {
+            inputs[side] = 0; f.discard_inputs();
+        }
         const bool finishing = phase_ == RoundPhase::FinishWindow && side == winner_;
+        if (finishing && easy_finishings_ && easy_buttons[side]) {
+            const auto available=finishers(f);
+            int button=0; while (!(easy_buttons[side] & (1<<button))) ++button;
+            const int index=available.size()<=3 ? button%3 : button;
+            if (!available.empty() && (index<(int)available.size() || available.size()==1)) {
+                auto& victim=*fighters[1-side];
+                f.stop_vertical(); victim.stop_vertical();
+                f.facing=f.x<=victim.x ? 1:-1; victim.facing=-f.facing;
+                f.x=std::clamp(victim.x-f.facing*100,40,600);
+                f.hit_pause=0; f.discard_inputs(); inputs[side]=0;
+                f.force_move(available[available.size()==1 ? 0:index]);
+            }
+        }
         f.step(inputs[side],fighters[1-side],finishing,slots(side));
         movement(f);
         f.x = std::clamp(f.x,40,600); // steering also applies to moves without a displacement stream
@@ -210,10 +246,12 @@ void Combat::tick(Fighter& a, Fighter& b, uint16_t input_a, uint16_t input_b) {
                 std::vector<Cl2Box> placed;
                 for (const auto& raw : boxes->frames[s.image].attack_boxes) {
                     Cl2Box box = raw;
-                    const int bx = raw.x*4 - (s.flags & 2 ? 320 : f.cl2_ref_x);
-                    box.x = s.x+(s.facing>0 ? bx : -bx-raw.w*4);
-                    box.y = raw.y*2+s.y-(s.flags & 2 ? 200 : f.ground_y);
-                    box.w *= 4; box.h *= 2; placed.push_back(box);
+                    // EXTRA and robot projectile pixels use the same authored
+                    // canvas as the owner, not an independent 320/200 pivot.
+                    AtlasFrame extent{0,raw.x*4,raw.y*2,0,0,raw.w*4,raw.h*2,0,false};
+                    Fighter position=f; position.x=s.x;position.y=s.y;position.facing=s.facing;
+                    const auto rect=position.frame_rect(extent,0);
+                    box.x=rect.x;box.y=rect.y;box.w=rect.w;box.h=rect.h;placed.push_back(box);
                 }
                 hit(f,v,side,placed,body[1-side],s.facing,&p);
             }
@@ -241,7 +279,7 @@ void Combat::tick(Fighter& a, Fighter& b, uint16_t input_a, uint16_t input_b) {
 }
 
 static void draw_script(SDL_Renderer* r, const ScriptPlayer& s, const Fighter& owner,
-                        const AtlasBank* extra, int camera, bool attached) {
+                        const AtlasBank* extra, int camera, bool attached, bool impact=false) {
     if (!s.active() || s.image < 0 || s.image == 1000) return;
     const bool shared = (s.flags & 2) != 0;
     const auto* bank = shared ? extra : owner.atlas;
@@ -249,10 +287,10 @@ static void draw_script(SDL_Renderer* r, const ScriptPlayer& s, const Fighter& o
     if (!bank || index >= (int)bank->frames.size()) return;
     const auto& f = bank->frames[index];
     if (f.empty || f.page < 0 || f.page >= (int)bank->pages.size()) return;
-    const int x = s.x + (attached ? owner.x : 0), y = s.y + (attached ? owner.y : 0);
+    const int x = s.x+(attached ? owner.x:0),y=s.y+(attached ? owner.y:0);
     const int facing = attached ? owner.facing : s.facing;
     SDL_Rect src{f.rect_x,f.rect_y,f.rect_w,f.rect_h}, dst;
-    if (shared) {
+    if (impact) {
         dst = {x-camera+(facing>0 ? f.origin_x-320 : 320-f.origin_x-f.rect_w),
                y+f.origin_y-200,f.rect_w,f.rect_h};
     } else {
@@ -269,7 +307,7 @@ void Combat::render(SDL_Renderer* r, const Fighter& a, const Fighter& b, int cam
         draw_script(r,attached_[side],*f[side],extra_,camera,true);
         for (const auto& p : projectiles_[side]) draw_script(r,p.visual,*f[side],extra_,camera,false);
     }
-    for (const auto& i : impacts_) draw_script(r,i,a,extra_,camera,false);
+    for (const auto& i : impacts_) draw_script(r,i,a,extra_,camera,false,true);
 }
 
 std::string command_notation(const MoveCommand& command) {

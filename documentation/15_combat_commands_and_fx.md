@@ -17,6 +17,8 @@ The port reads each selected robot's commands and visual scripts from its own MV
 
 The list uses directions relative to the opponent: F/B, U/D, DF/DB, UF/UB. P/K denote punch/kick; N denotes release and `*` one arbitrary history entry. Super commands require a full 24-unit meter. `LOCKED` entries are stolen powers, not ordinary specials. `NO DATA` marks an empty action, `NO INPUT` an unproducible script input, and `ORDER` a command masked by an earlier normal command. Original command order is preserved. Movement numbers are identifiers, not invented move names.
 
+**OPTIONS → EASY FINISHINGS** provides an optional attack-button shortcut after KO. It lists the selected robot's available even 48–58 source actions, sorts them by movement ID and connects light/medium/heavy punch and kick consistently. If there is only one, any attack button selects it. A fresh press is required; holding the knockout strike does not trigger a finishing automatically. F1 shows the shortcut. Original command inputs remain available. This assist bypasses command entry and places the winner at a demonstration distance; it does not invent missing actions or implement the remaining cinematic callbacks. Details are in [document 16](16_options_filters_and_fx.md).
+
 ## Input strength and command matching
 
 Addresses below refer to the analysed older `RISE2.EXR`; executable-dependent table locations are mapped separately for Director's Cut.
@@ -37,7 +39,7 @@ The history writer at `0x161c0` strips directions from attack events and stores 
 
 `FUN_234fa` scans the command section in file order, then falls back to ordinary transition masks. Input bytes precede `0xff` and a target movement byte; an empty `0xff` ends the list. `0xfe` consumes exactly one history entry. It does not mean “skip an arbitrary number of inputs”. Scripts are stored newest first; the display reverses them into execution order.
 
-`FUN_2695b` gates commands by ground/air condition, available projectile slots, current action and hit-confirm cancellation. It rejects movements 72/73 and normally prevents interrupting an attack after its first two frames. STS `0x20` blocks scripted interruption. Movements 90–95 require and consume individual stolen-power bits. Movement 89 additionally requires a grounded, nearby, weakened opponent of native robot ID 6 or 18. The port implements these gates; progression and awarding stolen powers remain separate work. Native IDs are A–Z followed by 0–3, not the displayed roster order.
+`FUN_2695b` gates commands by ground/air condition, available projectile slots, current action and hit-confirm cancellation. It rejects movements 72/73 and normally prevents interrupting an attack after its first two frames. STS `0x20` blocks scripted interruption. Movements 90–95 require and consume individual stolen-power bits. Movement 89 additionally requires a grounded, nearby, weakened opponent of native robot ID 6 or 18. The port implements these gates; progression and awarding stolen powers remain separate work. Native IDs are A–Z followed by 0–3; the displayed roster has now been corrected to that same order.
 
 Some data contains impossible input bytes or ordered-prefix conflicts. Original-instruction execution of RBTY confirms that its command 81 wins over command 88, and command 84 wins over finishing command 50. The port reports these conflicts rather than silently reordering the bank. Whether the original game has an additional path to expose those actions remains unresolved.
 
@@ -61,7 +63,9 @@ Each effect instruction contains four signed 16-bit words: image, horizontal del
 
 EXTRA contains 280 frames. Its PAL contains an eight-byte header followed by **768 eight-bit RGB bytes**; the robot PAL format is different. The placeholder green colors in arena palettes cannot color these effects correctly. `extract_anr.py` now exports EXTRA with its own palette.
 
-EXTRA frame indices are direct. Robot MVS images still select atlas frame `image+1`. Effects are placed relative to the original 320/200 canvas anchor. `FUN_39fde` and `FUN_3a0d2` drive four impact slots from four executable scripts. `extract_combat.py` exports those scripts, sixteen particle sequences, per-robot super strengths and four body-reaction states. It supports the two currently analysed executable hashes and refuses unknown table layouts.
+EXTRA frame indices are direct. Robot MVS images still select atlas frame `image+1`. `FUN_191be` and `FUN_192da` send both shared and robot effects to the same native blitter with owner-relative or projectile-world coordinates. Attached visuals and projectiles therefore share the owner's authored canvas projection and sprite scale; treating EXTRA as a separate 320/200 anchor put shots near the floor. Projectile collision boxes use the same projection. Ordinary contact impacts retain their existing overlap-point placement. Embedded robot effects now also receive EXTRA.PAL colors at indices 203–239: the arena's green reserves are not their true colors. See document 16 for the Cyborg reproduction and palette limits.
+
+`FUN_39fde` and `FUN_3a0d2` drive four impact slots from four executable scripts. `extract_combat.py` exports those scripts, sixteen particle sequences, per-robot super strengths and four body-reaction states. It supports the two currently analysed executable hashes and refuses unknown table layouts.
 
 The runtime renders original strike/guard impacts, attached effects, projectiles and projectile explosions. Periodic damage smoke, the sixteen particle emitters, screen distortion and some robot-specific finishing callbacks are extracted or identified but not fully integrated. They must not be confused with the impact FX already running.
 
@@ -89,14 +93,14 @@ The port exposes a 200-tick finishing window at its current simulation rate. A v
 
 ## Refresh and verification
 
-Existing imports need the new metadata and EXTRA atlas; a full import now does this automatically. To refresh a private profile without re-ripping its game or audio:
+Existing imports need the metadata, EXTRA atlas and corrected robot atlases; a full import now does this automatically. To refresh a private profile without re-ripping its game or audio:
 
 ```powershell
 python TOOLS/extract_mvs.py --source LOCAL/my-game/game --output LOCAL/my-game/EXTRACTED/data/mvs
-python TOOLS/extract_anr.py --source LOCAL/my-game/game --output LOCAL/my-game/EXTRACTED/sprites --banks EXTRA
+python TOOLS/extract_anr.py --source LOCAL/my-game/game --output LOCAL/my-game/EXTRACTED/sprites
 python TOOLS/extract_combat.py --source LOCAL/my-game/game --output LOCAL/my-game/EXTRACTED/data/combat.json
 ```
 
 The new `combat_rules` CTest uses synthetic data for strengths, mirrored commands, wildcard history, super/stolen/finishing gates, script loops, damage/body reactions, held-hit protection, KO and a signed finishing reaction. Existing fighter and audio tests remain. Python fixtures cover command boundaries and big-/little-endian effect scripts, including short stops and invalid loops.
 
-`TOOLS/verify_x86_combat.py` executes the supplied older EXR's command matcher, real gates and projectile interpreter with relocated private MVS/STS data. RBTF exercises fourteen command entries and twelve projectile ticks; RBTY verifies original prefix priority conflicts. No executable instructions or game scripts are included in the tool. `rotr2_asset_smoke` checks 306 executable commands in the 28-robot profile and 326 in Director's Cut's 30-robot profile, plus all FX frame references; respectively 12 and 14 empty, impossible or shadowed entries remain identified. The checks also caught and corrected selection cycling beyond the older edition's roster, and missing default controls when a profile has no CFG. `rotr2_headless` shares the runtime combat class and verifies two held strikes, a full jump, a real EXTRA projectile hit and WAR's finishing command with a CL2 death reaction. Generated captures and reports stay private. Interactive feel and complete finishing presentation still need user playtesting.
+`TOOLS/verify_x86_combat.py` executes the supplied older EXR's command matcher, real gates and projectile interpreter with relocated private MVS/STS data. RBTF exercises fourteen command entries and twelve projectile ticks; RBTY verifies original prefix priority conflicts. No executable instructions or game scripts are included in the tool. `rotr2_asset_smoke` checks 306 executable commands in the 28-robot profile and 326 in Director's Cut's 30-robot profile, plus all FX frame references; respectively 12 and 14 empty, impossible or shadowed entries remain identified. The checks also caught and corrected selection cycling beyond the older edition's roster, and missing default controls when a profile has no CFG. `rotr2_headless` shares the runtime combat class and verifies two held strikes, a full jump, a real EXTRA projectile hit, Cyborg's uppercut in both directions, and PRIME 8's command-driven and single-button finishing with a CL2 death reaction. The bank was incorrectly labelled WAR before the roster correction. Generated captures and reports stay private. Interactive feel and complete finishing presentation still need user playtesting.

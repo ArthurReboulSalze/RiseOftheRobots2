@@ -47,6 +47,7 @@ struct Fighter {
 
     // Sample every render iteration so a tap between simulation ticks survives.
     void sample_inputs(uint16_t inputs);
+    void discard_inputs();
     bool airborne() const { return y < ground_y || vertical_velocity != 0; }
 
     // Advance one frame: input transition, otherwise next sequence step.

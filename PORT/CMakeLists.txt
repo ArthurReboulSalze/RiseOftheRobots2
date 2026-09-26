@@ -17,6 +17,9 @@ add_executable(rotr2
   src/combat.cpp
   src/ui.cpp
   src/frontend.cpp
+  src/settings.cpp
+  src/filters.cpp
+  src/presentation.cpp
 )
 
 target_include_directories(rotr2 PRIVATE
@@ -43,6 +46,9 @@ add_custom_command(TARGET rotr2 POST_BUILD
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(rotr2_options_test tests/options_test.cpp src/settings.cpp src/filters.cpp)
+  target_include_directories(rotr2_options_test PRIVATE ${TP} src)
+  add_test(NAME options_and_filters COMMAND rotr2_options_test)
   add_executable(rotr2_fighter_test tests/fighter_test.cpp src/fighter.cpp)
   target_include_directories(rotr2_fighter_test PRIVATE ${SDL2_DIR}/include src)
   add_test(NAME fighter_frames COMMAND rotr2_fighter_test)
@@ -68,7 +74,7 @@ if(BUILD_TESTING)
 
   # Manual check against a private imported profile; no game data in CI.
   add_executable(rotr2_asset_smoke tests/asset_smoke.cpp
-    src/assets.cpp src/fighter.cpp src/combat.cpp src/ui.cpp src/frontend.cpp)
+    src/assets.cpp src/fighter.cpp src/combat.cpp src/ui.cpp src/frontend.cpp src/settings.cpp src/filters.cpp src/presentation.cpp)
   target_include_directories(rotr2_asset_smoke PRIVATE
     ${SDL2_DIR}/include ${SDL2IMG_DIR}/include ${TP} src)
   target_link_libraries(rotr2_asset_smoke PRIVATE

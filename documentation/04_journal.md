@@ -2,6 +2,16 @@
 
 This is a chronological research log. Early interpretations are preserved here as history; documents 05, 07, 08, 09, and 10 describe the corrected current understanding. In particular, early claims that MVS held sound and MRW held video were disproved. The French originals remain in the local Git history; this public version records their findings in English.
 
+## Session 31 — 2026-09-26: options, retro filters and FX corrections
+
+The title now opens OPTIONS with separate music/game volume, key mapping, optional single-button finishings and original/bilinear/Scale2x/Scale3x/xBR/soft-CRT display modes. Values persist per private asset profile. The finishing assist uses the robot's available source actions, requires a new attack press after KO, and follows light/medium/heavy order if multiple variants exist. xBR retains Hyllian's MIT notice; its CPU corner checks were optimized, threaded and cached between scene updates.
+
+The user identified Cyborg's down/diagonal-forward/forward/punch uppercut as correctly placed but incorrectly flat green. Robot exports had baked the arena's reserved green indices 203–239 into embedded FX. Applying EXTRA.PAL's RGB8 colors restores the white/grey details and actual green edges while preserving the span mask and the existing placement. The correction applies to all robot banks. Shared EXTRA projectile visuals and collision boxes now use the same owner-canvas projection as the native blitter, fixing their floor-level placement; ordinary impact placement stays separate.
+
+RISE.FRA and the supplied robot/portrait data also exposed an earlier two-position name rotation: A is Cyborg, B Loader, C Prime 8, F Rook, H Deadlift, and 0 Surpressor. The runtime roster and current documentation are corrected. Earlier journal references to WAR's RBTC finishing actually describe Prime 8; early Cyborg/RBT0 references describe Surpressor. Those historical entries remain below.
+
+Release compilation and four CTest checks passed, as did the Python fixtures and both private 28/30-robot profiles. Captures verify all six option filters, the two mirrored Cyborg uppercuts, shared projectile hits and command/single-button finishings with signed CL2 death reactions. A local software-renderer xBR check took about 21–22 ms per changed scene after optimization; this is not a measured game FPS result. Updated robot/EXTRA runtime atlases were regenerated for both local profiles. Native dynamic palette changes (including slot 253), exact DOS round timing and complete finishing callbacks remain open. See document 16.
+
 ## Session 30 — 2026-09-26: robot commands, original FX and finishing phase
 
 The user requested character attacks/combinations, combat effects and finishings. Ghidra and the private executable revealed the per-bank command section and five-pointer effect directory in MVS, the EXTRA palette/atlas, original impact scripts, three projectile slots and signed CL2 victim reactions. The old description of this MVS directory as AIP was wrong. Direct-hit damage was also corrected: strength and the configuration stat belong to the attacker, with the body box supplying a multiplier and reaction region.

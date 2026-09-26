@@ -3,9 +3,10 @@
 #include "assets.h"
 #include "roster.h"
 #include "ui.h"
+#include "settings.h"
 #include <vector>
 
-enum class Screen { Intro, Title, KeyMapping, HighScore, Credits, Select, Fight };
+enum class Screen { Intro, Title, Options, KeyMapping, HighScore, Credits, Select, Fight };
 
 // Écran KEY MAPPING : lecture/écriture de EXTRACTED/ui/rise2.cfg (46 x u16, mots 1-10 = P1,
 // 11-20 = P2 : up/down/left/right/01/02/03/P1/P2/P3, valeurs = scancodes DOS set 1).
@@ -25,6 +26,8 @@ public:
 
     // Entrées configurées (scancodes DOS par entrée ; voir dos_key_name / sdl_to_dos).
     uint16_t key_for(int player_index, int entry) const { return keymap_[player_index][entry]; }
+    const Settings& settings() const { return settings_; }
+    int animation_frame() const { return intro_frame_; }
 
 private:
     SDL_Renderer* renderer_;
@@ -36,10 +39,14 @@ private:
     SDL_Texture* hs_;        // fond de l'ecran HIGH SCORE
     SDL_Texture* credits_;   // fond de l'ecran CREDITS
     SDL_Texture* versus_;
+    SDL_Texture* options_background_;
+    Settings settings_;
+    std::string options_path_;
+    int options_choice_ = 0;
     Screen screen_ = Screen::Intro;
     int intro_frame_ = 0;
     double intro_elapsed_ = 0.0;
-    int title_choice_ = 0;            // 0..4 : START / KEY MAPPING / HIGH SCORE / CREDITS / QUIT
+    int title_choice_ = 0;            // START / OPTIONS / HIGH SCORE / CREDITS / QUIT
 
     // KEY MAPPING
     uint16_t keymap_[2][10] = {};
@@ -52,7 +59,7 @@ private:
     struct Hiscore { std::string name; uint32_t score; };
     std::vector<Hiscore> hiscores_;
 
-    int selected_[2] = {2, 7};        // WAR / DEADLIFT (grille : 0..19 visibles, 20+ masqués)
+    int selected_[2] = {2, 7};        // PRIME 8 / DEADLIFT (0..19 visible, 20+ hidden)
     int visible_robots_ = 20;
     bool match_requested_ = false;
     bool quit_requested_ = false;
@@ -63,6 +70,7 @@ private:
     void load_hiscores();
     void draw_title() const;
     void draw_keymapping() const;
+    void draw_options() const;
     void draw_highscore() const;
     void draw_credits() const;
     void draw_select() const;

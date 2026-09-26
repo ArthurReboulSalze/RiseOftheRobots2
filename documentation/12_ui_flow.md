@@ -1,103 +1,68 @@
-# 12 — Spécification UI du port (anglais) — flux de référence
+# 12 — English UI flow and reference screens
 
-> Références : `documentation/captures/reference/01..07*.png` (captures de l'original fournies
-> par l'utilisateur, 2026-09-26). Le port est **en anglais uniquement** (les écrans originaux
-> fournis sont en français ; traduire les libellés).
+The original screenshots supplied on 2026-09-26 are private visual references under `documentation/captures/reference/`. Their French text is translated for the port. This page distinguishes the current flow from presentation work still to implement.
 
-## 1. Menu principal (réf. 01)
+## Title and options
 
-Écran : logo **RESURRECTION / RISE 2** (titre original), liste verticale centrée.
+The title uses the original RESURRECTION / RISE 2 artwork and a centered menu:
 
-Port — libellés anglais :
-
-```
-START            (original : DEMARRAGE)
-KEY MAPPING      (remplace INSTALLATION — écran de configuration des touches)
+```text
+START
+OPTIONS
 HIGH SCORE
 CREDITS
 QUIT
 ```
 
-Navigation : flèches haut/bas, Entrée = valider (identique à l'original : `↑↓ = MOVE`,
-`↵ = SELECT`, `F1 = ONLINE HELP`, `Esc = PREVIEW MENU` en pied d'écran).
+Up/down select; Enter confirms. OPTIONS contains MUSIC VOLUME, GAME VOLUME, EASY FINISHINGS, DISPLAY FILTER, KEY MAPPING and BACK. Left/right adjust values, Enter toggles or opens a row, and Escape returns. The original localized footer is covered before drawing the English controls. Settings persist per private profile; [document 16](16_options_filters_and_fx.md) specifies defaults, finishing shortcuts and filters.
 
-## 2. Écran KEY MAPPING (réf. 02 — remplace l'écran INSTALLATION original)
+## Key mapping
 
-L'original ouvre l'« INSTALLATION » (setup complet : LANGUE / COMMANDES / SON / VIDEO /
-OPTIONS DE JEU / OPTIONS RESET / AIDE / QUIT / CONTINUE). Le port remplace ce menu par
-**KEY MAPPING** seul : la page de liaison des touches, directement accessible depuis le
-menu principal.
+**OPTIONS → KEY MAPPING** opens two keyboard columns, PLAYER 1 and PLAYER 2. Each has ten entries:
 
-Contenu à reproduire (d'après l'original, traduit) :
-
+```text
+UP
+DOWN
+LEFT
+RIGHT
+PUNCH LIGHT
+PUNCH MEDIUM
+PUNCH HEAVY
+KICK LIGHT
+KICK MEDIUM
+KICK HEAVY
 ```
-PLAYER 1  KEYBOARD                    PLAYER 2  KEYBOARD
-  UP:    <touche>     01: <touche>     (P1)   UP:  <touche>   01: <touche>
-  DOWN:  <touche>     02: <touche>            DOWN: ...
-  LEFT:  <touche>     03: <touche>
-  RIGHT: <touche>
-```
 
-- 10 entrées par joueur (4 directions + 01/02/03 = PUNCH 1-3, et P1/P2/P3 = KICK 1-3
-  — cf. OPTIONS.TXT : `up, down, left, right, punch1, punch2, punch3, kick1, kick2, kick3`).
-- Deux colonnes : PLAYER 1 et PLAYER 2, chacun KEYBOARD (joystick plus tard).
-- Action en bas de l'écran : « CONFIGURE KEYBOARD/JOYSTICK CONTROLS » (l'original :
-  « CONFIG. COMMANDES CLAV./JOYSTICK ») = mode d'affectation (toucher une touche pour la
-  lier à l'entrée sélectionnée).
-- Les liaisons lues/écrites dans `RISE2.CFG` (46 x u16 : scancodes + options — les
-  scancodes visibles dans la capture P1 : HAUT/BAS/GAUCHE/DROITE + T/R/Y…).
-- Retour : Esc / l'entrée QUIT du sous-menu -> menu principal.
+Up/down choose an entry, left/right choose a player, and Enter waits for a replacement key. Escape cancels a pending assignment; otherwise it returns to OPTIONS. The labels replace the earlier opaque 01/02/03 and P1/P2/P3 names. Bindings use DOS set-1 scancodes in the profile's private `ui/rise2.cfg`, converted to SDL keys at runtime. Joystick configuration remains future work.
 
-## 3. Sélection des personnages (réf. 03 + 04)
+## Character selection
 
-- **Grille de portraits** : 20 panneaux visibles (2 rangées), vignettes des robots.
-- **Cadre de sélection** : rouge pour le joueur 1, bleu pour le joueur 2 (réf. 04).
-- Zone basse : le robot sélectionné s'anime en grand sur la plate-forme (nom affiché sous
-  le robot, ex. WAR).
-- **Robots masqués** : les robots non débloqués ne sont PAS dans la grille — en continuant à
-  se déplacer **au-delà du bord gauche ou droit de la grille**, on « sort » du panel et les
-  robots masqués s'affichent. À reproduire tel quel (défilement circulaire élargi).
-- Valider un robot -> le cadre passe à la couleur du joueur et le robot reste affiché ;
-  en 2 joueurs, les deux choix côte à côte (réf. 04 : WAR + DETAIN).
+The current screen has a two-row grid of twenty visible portraits, red and blue player cursors, and larger selected portraits beneath it. Player 1 uses arrows; player 2 uses A/D. Enter starts the selected match. Continuing beyond the visible grid exposes the remaining robots, capped to the imported edition's 28 or 30 available banks.
 
-## 4. Écran VS (réf. 05)
+Names, portrait palettes and banks follow source order ABC…Z01, with 2/3 in Director's Cut. A is Cyborg and 0 is Surpressor; the previous two-position name rotation is corrected. Native unlock progression has not been reconstructed. The full hangar background, animated selection robots and exact original confirmation behavior remain presentation work.
 
-- Fond sombre à motif, les deux robots en silhouette grand format face à face, grand **VS**
-  au centre, **pastille circulaire type camembert** en haut (indicateur de chargement),
-- noms des robots en bas à gauche/droite (WAR / DETAIN).
-- Transite automatiquement vers le combat une fois le « chargement » terminé.
+## Versus reference
 
-## 5. Combat in-game (réf. 06)
+The supplied VS reference shows a dark patterned backdrop, large opposing robot silhouettes, a central VS, a circular loading indicator and names at the lower edges. The asset is available, but the complete transition and loading presentation remain to implement. Do not treat a decoded VS image as evidence of the complete original flow.
 
-HUD (les deux barres sont EN HAUT) :
+## Combat reference
 
-- **Noms** aux extrémités (WAR à gauche, DETAIN à droite), compteur de score 00000000 au
-  centre de chaque barre.
-- **Barres de vie vertes** symétriques (se vident vers le centre), dégradé vert->rouge.
-- **Chrono** central rouge (85, 76… décompte).
-- **Jauges de super** : pastilles jaunes sous chaque nom (gauche).
-- Arène : fond défilant (ville), sol texturé.
+The source screenshots show player names and scores at the top edges, two mirrored health bars, a red central timer, yellow super indicators, and a scrolling arena with textured ground. The current port has an initial HUD, health/super state, source animations, hits, FX and a finishing/result/rematch phase. Full score, timer and round progression still need integration.
 
-## 6. Menu pause in-game (réf. 07 — touche ECHAP)
+F1 pauses to show both robots' source commands and configured controls, including finishing shortcuts when enabled. F2 switches player 2 between basic CPU sparring and its configured keyboard. See [combat commands and FX](15_combat_commands_and_fx.md) for supported behavior and limits.
 
-Port — libellés anglais (l'original : CONTINUER MATCH / F9 CALIBRER JOYSTICKS / F10 QUITTER MATCH) :
+## Pause menu
 
-```
-CONTINUE MATCH        (reprendre)
+Escape opens the existing pause menu:
+
+```text
+CONTINUE MATCH
 F9  CALIBRATE JOYSTICKS
-F10 QUIT MATCH        (retour au menu principal)
+F10 QUIT MATCH
 ```
 
-Texte superposé en rouge sur le combat figé.
+The overlay freezes combat. Continuing resumes it; quitting returns to selection. Joystick calibration is currently a placeholder.
 
-## Notes d'implémentation pour le port
+## Rendering and data
 
-- Tous les écrans = résolution native 640x400 (rendu x2).
-- Les graphismes des écrans existent dans les assets : logo du titre (GGF : famille
-  A4x/AGx — le panneau menu), portraits de sélection (VSFACE/V4FACE, 28+28), les arènes
-  (GGF AG* 800x400). Le texte = moteur de texte (`FUN_1fa80`, police CHRSET).
-- Le clavier = scancodes DOS (les valeurs de RISE2.CFG) — mapper scancodes -> SDL scancodes
-  pour l'écran KEY MAPPING et le jeu.
-- Les robots masqués : mécanisme de déblocage à retrouver (high score ? arcade ?) — pour
-  l'instant reproduire le comportement de défilement étendu (sortir de la grille révèle
-  les masqués).
+Screens compose at 640×400, displayed in a resizable window with preserved aspect ratio and the selected filter. Title/menu backgrounds are GGF resources; portraits are VSFACE/V4FACE; arenas are 800×400 AG-family images. The port's font renderer uses imported font data; original text rendering was identified at `FUN_1fa80`. Decoded assets and reference screenshots remain private and are not shipped in the repository.

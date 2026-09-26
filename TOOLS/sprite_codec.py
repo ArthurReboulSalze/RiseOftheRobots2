@@ -141,4 +141,9 @@ def render_frame(frame, palette):
     image.putpalette(palette)
     image = image.convert("RGBA")
     image.putalpha(alpha)
+    # Unpainted pixels have no color. Keep reserve palette green out of the
+    # transparent RGB channels as well as the visible spans (filtered sampling).
+    transparent = Image.new("RGBA", image.size)
+    transparent.paste(image, (0, 0), alpha)
+    image = transparent
     return image

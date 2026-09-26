@@ -35,6 +35,10 @@ public:
     const std::vector<CombatHit>& hits() const { return hits_; }
     const std::array<std::array<Projectile,3>,2>& projectiles() const { return projectiles_; }
     bool usable_finisher(const Fighter& fighter, int target) const;
+    std::vector<int> finishers(const Fighter& fighter) const;
+    void set_easy_finishings(bool enabled) { easy_finishings_=enabled; }
+    // Raw configured attack buttons: punch light/medium/heavy, then kicks.
+    void sample_attack_buttons(uint8_t a,uint8_t b);
 
 private:
     const CombatData* data_;
@@ -43,6 +47,8 @@ private:
     RoundPhase phase_ = RoundPhase::Fighting;
     int winner_ = -1, remaining_ = 0;
     bool death_animation_ = false;
+    bool easy_finishings_ = false;
+    std::array<uint8_t,2> held_buttons_{},pressed_buttons_{};
     std::array<unsigned,2> serial_{{~0u,~0u}};
     std::array<ScriptPlayer,2> attached_;
     std::array<std::array<Projectile,3>,2> projectiles_;

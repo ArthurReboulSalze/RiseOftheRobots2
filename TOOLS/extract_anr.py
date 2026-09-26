@@ -29,7 +29,14 @@ def palette_for(source, stem, frame_id):
         context = bytearray(parse_palette(background.read_bytes()[1:769])) if background.exists() else bytearray(768)
         context[:210] = parse_palette(raw)
         context[210:420] = parse_palette(raw)
-        label = f"{path.name}[0:70] + same-robot opponent"
+        # Embedded robot FX use the same shared colors as standalone EXTRA.
+        # AG palettes reserve these entries as bright green until the game sets
+        # them; baking those placeholders produces a solid green attack trail.
+        shared = (source / "EXTRA.PAL").read_bytes()
+        if len(shared) != 776:
+            raise ValueError("Invalid EXTRA palette size")
+        context[203*3:240*3] = shared[8+203*3:8+240*3]
+        label = f"{path.name}[0:70] + same-robot opponent + EXTRA.PAL[203:240]"
         return bytes(context), label + (f" + {background.name}[140:256]" if background.exists() else " (no effect indices)")
     elif stem in ("VSFACE", "V4FACE"):
         path = source / "VSFACE.PAL"

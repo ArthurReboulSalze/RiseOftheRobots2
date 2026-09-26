@@ -132,5 +132,27 @@ int main() {
     combat.tick(f[0],f[1],IN_PUNCH,0);
     if (!check(combat.phase()==RoundPhase::Finishing && f[0].move_id==50 && f[1].move_id==51,
                "a finishing must play the source attack and signed collision reaction")) return 1;
+
+    for (int button=0;button<6;++button) {
+        f=pair();f[1].health=1;combat.reset();combat.set_easy_finishings(true);
+        combat.sample_attack_buttons(1,0);
+        combat.tick(f[0],f[1],IN_PUNCH,0);
+        combat.sample_attack_buttons(1,0);combat.tick(f[0],f[1],0,0);
+        if (!check(combat.phase()==RoundPhase::FinishWindow,"holding the knockout button must not trigger an easy finishing")) return 1;
+        combat.sample_attack_buttons(0,0);combat.tick(f[0],f[1],0,0);
+        combat.sample_attack_buttons(1<<button,0);combat.tick(f[0],f[1],0,0);
+        if (!check(combat.phase()==RoundPhase::Finishing && f[0].move_id==50,
+                   "each configured attack button must execute the single available finishing on a fresh press")) return 1;
+    }
+    moves.moves[48]=moves.moves[50]; moves.commands.push_back({{32,4},48});
+    for (int button : {0,1,3,4}) {
+        f=pair();f[1].health=1;combat.reset();combat.set_easy_finishings(true);
+        combat.tick(f[0],f[1],IN_PUNCH,0);
+        combat.sample_attack_buttons(1<<button,0);combat.tick(f[0],f[1],0,0);
+        if (!check(f[0].move_id==(button%3==0 ? 48:50),"easy variants must have the same light/medium order for punches and kicks")) return 1;
+    }
+    f=pair();f[1].health=1;combat.reset();combat.set_easy_finishings(false);
+    combat.tick(f[0],f[1],IN_PUNCH,0);combat.sample_attack_buttons(1,0);combat.tick(f[0],f[1],0,0);
+    if (!check(combat.phase()==RoundPhase::FinishWindow,"disabled finishing assist must preserve original commands")) return 1;
     return 0;
 }

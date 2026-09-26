@@ -3,29 +3,86 @@
 #include "fighter.h"
 #include "combat.h"
 #include "frontend.h"
+#include "presentation.h"
 #include "SDL_image.h"
 #include <cstdio>
 #include <set>
 #include <stdexcept>
+#include <filesystem>
+#include <chrono>
 
 int main(int argc, char** argv) {
-    if (argc != 2) {
-        std::fprintf(stderr, "Usage: rotr2_asset_smoke <profile/EXTRACTED>\n");
+    if (argc < 2 || argc > 3) {
+        std::fprintf(stderr, "Usage: rotr2_asset_smoke <profile/EXTRACTED> [capture_dir]\n");
         return 2;
     }
     SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
     if (SDL_Init(SDL_INIT_VIDEO) || !(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) return 1;
-    SDL_Window* window = SDL_CreateWindow("Asset check", 0, 0, 640, 400, SDL_WINDOW_HIDDEN);
+    SDL_Window* window = SDL_CreateWindow("Asset check", 0, 0, 1280, 800, SDL_WINDOW_HIDDEN);
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
     int result = 0;
     try {
         if (!window || !renderer) throw std::runtime_error(SDL_GetError());
         Assets assets(renderer, argv[1]);
+        if (argc==3) std::filesystem::create_directories(argv[2]);
+        auto capture=[&](const std::string& name) {
+            if (argc!=3) return;
+            SDL_Surface* surface=SDL_CreateRGBSurfaceWithFormat(0,1280,800,32,SDL_PIXELFORMAT_ARGB8888);
+            if (!surface || SDL_RenderReadPixels(renderer,nullptr,SDL_PIXELFORMAT_ARGB8888,surface->pixels,surface->pitch)<0)
+                throw std::runtime_error(SDL_GetError());
+            const auto output=std::filesystem::path(argv[2])/(name+".png");
+            if (IMG_SavePNG(surface,output.string().c_str())<0) throw std::runtime_error(SDL_GetError());
+            SDL_FreeSurface(surface);
+        };
+        for (const auto key : {SDLK_F1,SDLK_F10,SDLK_F11,SDLK_F12})
+            if (dos_to_sdl(sdl_to_dos(key))!=key || std::string(dos_key_name(sdl_to_dos(key)))!=SDL_GetKeyName(key))
+                throw std::runtime_error("Function key names and bindings must use the same DOS scancodes");
         Frontend frontend(renderer, assets, argv[1]);
         const auto* extra = assets.load_atlas("EXTRA");
         const auto* extra_cl2 = assets.load_cl2("EXTRA");
         const auto* combat_data = assets.load_combat();
         Combat combat(combat_data,extra,extra_cl2);
+        // Isolated controls/options: never change the user's imported profile.
+        const auto test_dir=std::filesystem::temp_directory_path() /
+            ("rise2-ui-test-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+        std::filesystem::create_directories(test_dir/"ui");
+        std::filesystem::copy_file(std::filesystem::path(argv[1])/"ui/font.png",test_dir/"ui/font.png");
+        {
+            Frontend menu(renderer,assets,test_dir.string());
+            Presentation display(renderer);
+            menu.key(SDLK_RETURN);menu.key(SDLK_DOWN);menu.key(SDLK_RETURN);
+            if (menu.screen()!=Screen::Options) throw std::runtime_error("Title must open Options");
+            menu.key(SDLK_LEFT); menu.key(SDLK_DOWN);
+            for (int i=0;i<20;++i) menu.key(SDLK_LEFT);
+            menu.key(SDLK_DOWN);menu.key(SDLK_RIGHT);menu.key(SDLK_DOWN);menu.key(SDLK_RIGHT);
+            if (menu.settings().music_volume!=95 || menu.settings().game_volume!=0 ||
+                !menu.settings().easy_finishings || menu.settings().filter!=DisplayFilter::Bilinear)
+                throw std::runtime_error("Options controls did not change the intended settings");
+            for (int i=0;i<static_cast<int>(DisplayFilter::Count);++i) {
+                display.begin();menu.render();
+                const auto start=SDL_GetPerformanceCounter();
+                display.present(menu.settings().filter,true);
+                const double ms=1000.*(SDL_GetPerformanceCounter()-start)/SDL_GetPerformanceFrequency();
+                printf("Options filter %s: %.1f ms (software renderer)\n",filter_name(menu.settings().filter),ms);
+                capture("options_filter_"+std::to_string(static_cast<int>(menu.settings().filter)));
+                menu.key(SDLK_RIGHT);
+            }
+            menu.key(SDLK_DOWN);menu.key(SDLK_RETURN);
+            if (menu.screen()!=Screen::KeyMapping) throw std::runtime_error("Key mapping must be inside Options");
+            for (int i=0;i<4;++i) menu.key(SDLK_DOWN);
+            menu.key(SDLK_RETURN);menu.key(SDLK_z);
+            display.begin();menu.render();display.present(menu.settings().filter,true);capture("key_mapping");
+            menu.key(SDLK_ESCAPE);
+            if (menu.screen()!=Screen::Options) throw std::runtime_error("Key mapping must return to Options");
+        }
+        {
+            Frontend reload(renderer,assets,test_dir.string());
+            if (reload.settings().music_volume!=95 || reload.settings().game_volume!=0 ||
+                !reload.settings().easy_finishings || reload.key_for(0,4)!=sdl_to_dos(SDLK_z))
+                throw std::runtime_error("Options and rebound attacks must survive reopening the frontend");
+        }
+        for (const char* file : {"font.png","port_options.json","rise2.cfg"}) std::filesystem::remove(test_dir/"ui"/file);
+        std::filesystem::remove(test_dir/"ui");std::filesystem::remove(test_dir);
         int commands_checked=0, unsupported=0;
         frontend.render(); // intro
         frontend.key(SDLK_RETURN);

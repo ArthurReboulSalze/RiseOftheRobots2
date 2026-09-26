@@ -5,6 +5,7 @@
 #include "fighter.h"
 #include "combat.h"
 #include "frontend.h"
+#include "presentation.h"
 #include "SDL.h"
 #include "SDL_image.h"
 #include "SDL_mixer.h"
@@ -16,6 +17,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
+#include <algorithm>
 
 static FILE* g_log = nullptr;
 static void logf(const char* fmt, ...) {
@@ -61,7 +63,8 @@ int main(int argc, char** argv) {
         SDL_WINDOW_RESIZABLE);
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
     SDL_Renderer* ren = SDL_CreateRenderer(win, -1,
-        SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+        SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_TARGETTEXTURE);
+    if (!win || !ren) {fprintf(stderr,"SDL video: %s\n",SDL_GetError());SDL_Quit();return 1;}
     SDL_RenderSetLogicalSize(ren, logical_w, logical_h);
     SDL_RenderSetIntegerScale(ren, SDL_TRUE);
 
@@ -69,6 +72,7 @@ int main(int argc, char** argv) {
     int ret = 0;
     try {
         Frontend frontend(ren, *assets, assets_dir);
+        Presentation presentation(ren);
         Fighter p1, p2;
         UiFont fight_font(ren,assets_dir);
         Combat combat(assets->load_combat(),assets->load_atlas("EXTRA"),assets->load_cl2("EXTRA"));
@@ -78,6 +82,18 @@ int main(int argc, char** argv) {
         // Audio : SDL_mixer (convertit automatiquement les echantillons, joue les MP3).
         Mix_Init(MIX_INIT_MP3 | MIX_INIT_OGG | MIX_INIT_FLAC);
         const bool audio_ok = Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 1024) == 0;
+        int music_volume=-1,game_volume=-1;
+        auto apply_options = [&]() {
+            const auto& options=frontend.settings();
+            combat.set_easy_finishings(options.easy_finishings);
+            if (audio_ok && options.music_volume!=music_volume) {
+                music_volume=options.music_volume; Mix_VolumeMusic((music_volume*MIX_MAX_VOLUME+50)/100);
+            }
+            if (audio_ok && options.game_volume!=game_volume) {
+                game_volume=options.game_volume; Mix_Volume(-1,(game_volume*MIX_MAX_VOLUME+50)/100);
+            }
+        };
+        apply_options();
         if (audio_ok) {
             int rate = 0, channels = 0;
             Uint16 format = 0;
@@ -220,10 +236,12 @@ int main(int argc, char** argv) {
         Uint64 previous_counter = SDL_GetPerformanceCounter();
         double accumulator = 0.0;
         while (run) {
+            bool scene_changed=false;
             SDL_Event ev;
             while (SDL_PollEvent(&ev)) {
                 if (ev.type == SDL_QUIT) run = false;
                 else if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
+                    scene_changed=true;
                     if (frontend.screen() == Screen::Fight) {
                         if (paused) {
                             if (ev.key.keysym.sym == SDLK_UP) pause_choice = (pause_choice + 2) % 3;
@@ -252,18 +270,22 @@ int main(int argc, char** argv) {
                     } else { frontend.key(ev.key.keysym.sym); load_keys(); }
                 }
             }
-            if (frontend.take_match_request()) start_match();
+            if (frontend.take_match_request()) {start_match();scene_changed=true;}
             if (frontend.quit_requested()) run = false;
+            apply_options();
             const Uint64 counter = SDL_GetPerformanceCounter();
             double elapsed = static_cast<double>(counter - previous_counter) / counter_frequency;
             previous_counter = counter;
             if (elapsed > tick_seconds * 2) elapsed = tick_seconds * 2;
             accumulator += elapsed;
+            const int intro_frame=frontend.animation_frame();
+            const Screen old_screen=frontend.screen();
             frontend.update(elapsed);
+            scene_changed|=intro_frame!=frontend.animation_frame() || old_screen!=frontend.screen();
             uint16_t in1 = 0, in2 = 0;
             if (frontend.screen() == Screen::Fight && !paused && !move_list) {
                 const Uint8* kb = SDL_GetKeyboardState(nullptr);
-                auto read_input = [&](const SDL_Keycode* keys) {
+                auto read_input = [&](const SDL_Keycode* keys,uint8_t& buttons) {
                     auto down = [&](int entry) { return keys[entry] != SDLK_UNKNOWN &&
                         kb[SDL_GetScancodeFromKey(keys[entry])]; };
                     uint16_t input = 0;
@@ -274,6 +296,7 @@ int main(int argc, char** argv) {
                     for (int group=0; group<2; ++group) {
                         for (int force=0; force<3; ++force) {
                             if (!down(4+group*3+force)) continue;
+                            buttons|=1<<(group*3+force);
                             input |= group == 0 ? IN_PUNCH : IN_KICK;
                             input &= ~(IN_MEDIUM|IN_HEAVY);
                             if (force == 1) input |= IN_MEDIUM;
@@ -282,8 +305,10 @@ int main(int argc, char** argv) {
                     }
                     return input;
                 };
-                in1 = read_input(p1keys);
-                if (second_keyboard) in2 = read_input(p2keys);
+                uint8_t buttons1=0,buttons2=0;
+                in1 = read_input(p1keys,buttons1);
+                if (second_keyboard) in2 = read_input(p2keys,buttons2);
+                combat.sample_attack_buttons(buttons1,buttons2);
                 p1.sample_inputs(in1);
                 if (second_keyboard) p2.sample_inputs(in2);
             }
@@ -298,6 +323,7 @@ int main(int argc, char** argv) {
                     else if (ai_clock % 60 < 12 && p2.flash == 0) in2 = IN_PUNCH;
                 }
                 combat.tick(p1,p2,in1,in2);
+                scene_changed=true;
                 for (const auto& hit : combat.hits()) {
                     if (audio_ok && snd[hit.attacker].samples[15])
                         Mix_PlayChannel(-1,snd[hit.attacker].samples[15],0);
@@ -306,6 +332,7 @@ int main(int argc, char** argv) {
                 }
             } else if (paused || move_list) accumulator = 0.0;
 
+            presentation.begin();
             if (frontend.screen() == Screen::Fight) {
                 // camera : suit le point median, bornee aux 160 px de defilement (arene 800 large)
                 const int cam_x = SDL_clamp((p1.x + p2.x) / 2 - logical_w / 2, 0, 800 - logical_w);
@@ -359,7 +386,8 @@ int main(int argc, char** argv) {
                 if (combat.phase() == RoundPhase::FinishWindow) {
                     fight_font.draw("P"+std::to_string(combat.winner()+1)+" - FINISH YOUR OPPONENT!",
                                     320,54,yellow,10,15,true);
-                    fight_font.draw("F1: YOUR FINISHING COMMAND",320,72,white,7,11,true);
+                    fight_font.draw(frontend.settings().easy_finishings ? "PRESS AN ATTACK BUTTON - F1 DETAILS" :
+                                    "F1: YOUR FINISHING COMMAND",320,72,white,7,11,true);
                 } else if (combat.phase() == RoundPhase::Finishing) {
                     fight_font.draw("FINISHING",320,54,yellow,12,18,true);
                 } else if (combat.phase() == RoundPhase::Ending || combat.phase() == RoundPhase::Result) {
@@ -379,6 +407,7 @@ int main(int argc, char** argv) {
                     const SDL_Keycode* keys[] = {p1keys,p2keys};
                     for (int side=0; side<2; ++side) {
                         const auto& f = *fighters[side]; const int x = 12+side*320;
+                        const auto finishers=combat.finishers(f);
                         fight_font.draw("P"+std::to_string(side+1)+" "+frontend.player(side).name,
                                         x,72,white,8,12);
                         std::string controls = "P:";
@@ -398,7 +427,16 @@ int main(int argc, char** argv) {
                             else if (c.target>=90) label += "LOCKED ";
                             else if (c.target>=48 && c.target<=58 && !(c.target&1))
                                 label += combat.usable_finisher(f,c.target) ? "FINISH " : "NO DATA ";
-                            label += command_notation(c);
+                            const auto easy=std::find(finishers.begin(),finishers.end(),c.target);
+                            if (frontend.settings().easy_finishings && easy!=finishers.end()) {
+                                const int index=(int)(easy-finishers.begin());
+                                if (finishers.size()==1) label+="[ANY ATTACK] EASY";
+                                else {
+                                    label += "["+std::string(SDL_GetKeyName(keys[side][4+index]));
+                                    if (finishers.size()<=3) label+=" / "+std::string(SDL_GetKeyName(keys[side][7+index]));
+                                    label+="] EASY";
+                                }
+                            } else label += command_notation(c);
                             fight_font.draw(label,x,104+row++*13,c.target==88 ? yellow : white,5,10);
                         }
                     }
@@ -421,7 +459,7 @@ int main(int argc, char** argv) {
             } else {
                 frontend.render();
             }
-            SDL_RenderPresent(ren);
+            presentation.present(frontend.settings().filter,scene_changed);
             SDL_Delay(1);
         }
         Mix_HaltMusic();
