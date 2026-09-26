@@ -2,6 +2,14 @@
 
 This is a chronological research log. Early interpretations are preserved here as history; documents 05, 07, 08, 09, and 10 describe the corrected current understanding. In particular, early claims that MVS held sound and MRW held video were disproved. The French originals remain in the local Git history; this public version records their findings in English.
 
+## Session 26 — 2026-09-26: correcting fighter-effect attribution
+
+An audio audit corrected the previous attribution of `FUN_226cc`. It writes the particle/effect state at `DAT_6852c`; it is not called once for every fighter animation frame. Its branches request either sample 3 from shared source bank 0 or sample 15 from a player bank. The latter is contextual particle audio, not evidence that every movement should play a whoosh. The port therefore removed the synthetic per-frame sample-3 callback.
+
+`FUN_3a792` confirms that SOS looks up `sample_index` in the selected MRW bank through the u16 count and 8-byte offset/size directory. `FUN_150b4` loads distinct `R<slot>.MRS`/`R<slot>.MRW` pairs for the two selected fighters. In the explicit hit chain, `FUN_39996` requests sample 15 from source bank `attacker + 1`; the port consequently queues sample 15 from the attacking fighter's imported bank once per move, and re-arms that collision only when the fighter changes movement. This removes the repeated rapid impact sound caused by re-arming every 15 Hz simulation step.
+
+The source bank is not a guarantee that every effect is unique: several sample-15 WAVs are byte-identical across distinct R-slot banks. That is intentional shared/category audio rather than a fallback to R0. To keep normal imports self-contained, the port now loads `EXTRACTED/audio/mrw/` directly, the 11,025 Hz WAVs produced by the importer, instead of relying on an untracked local `mrw_hq` resampling directory. SDL_mixer converts those chunks to its 44.1 kHz output device. MRS stream timing and pitch conversion still need a source-faithful implementation.
+
 ## Session 21 — 2026-09-26: UI screens, key mapping, desktop shortcuts
 
 The main menu was expanded to five working entries (START, KEY MAPPING, HIGH SCORE, CREDITS, QUIT), all in English per the user's decision. The KEY MAPPING screen loads and saves `EXTRACTED/ui/rise2.cfg` (words 1-10 player 1, 11-20 player 2, DOS set-1 scancodes) with per-entry assignment; the configured keys now drive the fight input. HIGH SCORE reads the original `HISCORE.DAT`; a pause overlay (Escape: CONTINUE MATCH / F9 CALIBRATE JOYSTICKS / F10 QUIT MATCH) freezes the fight. The select screen gained the 2x10 visible grid plus off-grid hidden robots. Reference screenshots of the original French UI were stored in `documentation/captures/reference/`, and the screen spec is `documentation/12_ui_flow.md`.

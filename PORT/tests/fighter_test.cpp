@@ -76,8 +76,8 @@ int main() {
     fighter.seq_pos = 0;
     fighter.playing = true;
     for (int i = 0; i < 5; ++i) fighter.step(0);
-    if (!check(fighter.current_frame() == 1 && !fighter.playing,
-               "one-shot move must hold its last visible frame")) return 1;
+    if (!check(fighter.move_id == 0 && fighter.playing && fighter.current_frame() >= 0,
+               "one-shot move must return to a visible idle frame")) return 1;
 
     mvs.moves[0].transitions = {{IN_B0, 2}, {IN_B5, 3}};
     MvsMove walk = idle;
@@ -88,10 +88,16 @@ int main() {
     fighter.move_id = 0;
     fighter.seq_pos = 0;
     fighter.playing = true;
+    fighter.hit_move = 2;
     if (!check(fighter.step(IN_B0) == 2 && fighter.move_id == 2,
                "forward input must enter the walk state")) return 1;
+    if (!check(fighter.hit_move == -1,
+               "a move transition must re-arm its collision sound/effect")) return 1;
+    fighter.hit_move = 2;
     if (!check(fighter.step(0) == 0 && fighter.move_id == 0,
                "releasing a direction must restore idle")) return 1;
+    if (!check(fighter.hit_move == -1,
+               "returning to idle must re-arm the next move")) return 1;
     if (!check(fighter.step(IN_B5) == 3 && fighter.move_id == 3,
                "back input must enter the back-walk state")) return 1;
     if (!check(fighter.step(IN_B0) == 2 && fighter.move_id == 2,

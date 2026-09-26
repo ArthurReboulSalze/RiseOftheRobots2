@@ -3,7 +3,6 @@
 #include "assets.h"
 #include "SDL.h"
 #include <vector>
-#include <functional>
 
 // Logical input bits (six bits; exact names require RISE2.CFG and playtesting).
 enum InputBits : uint16_t {
@@ -36,9 +35,6 @@ struct Fighter {
     // Advance one frame: input transition, otherwise next sequence step.
     // Return the target on a transition, or -1.
     int step(uint16_t inputs);
-    // joue les bruitages de mouvement (sample 3/15, cf. fn_226cc) ; câblé par main.
-    std::function<void(int, int, int)> sound_callback;   // (joueur, sample, pitch) — câblé par main
-    int player_index_ = 0;
 
     // Current-frame boxes in screen coordinates (x relative to fighter center).
     void get_boxes(std::vector<Cl2Box>* attacks, std::vector<Cl2Box>* bodies) const;

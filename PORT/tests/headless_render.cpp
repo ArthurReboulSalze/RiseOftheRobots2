@@ -153,8 +153,6 @@ int main(int argc, char** argv) {
                 SDL_RenderCopy(ren, arena_tex, &src, &dst);
             }
             update_facing(p1, p2);
-            p1.hit_move = -1;
-            p2.hit_move = -1;
             // script : p1 avance 30 ticks puis punch (0x10) pendant 10 ticks, reprise
             uint16_t in1 = 0;
             if (tick < 30) in1 = horizontal_input(false, true, p1.facing);

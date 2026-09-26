@@ -236,7 +236,8 @@ def choose_music(mode, names, tracks):
         raise ValueError(f"Requested audio mode {selected} has no available data.")
     return {"requested": mode, "selected": selected, "available": available,
             "digital_banks": [f"MG{x}" for x in "ABCDEF" if f"MG{x}.MRS" in names and f"MG{x}.MRW" in names],
-            "runtime_playback": "not_implemented", "note": "Import configuration. MRS sequencing and music playback are not yet implemented in the port."}
+            "runtime_playback": {"cd_tracks": "implemented", "digital_mrs": "not_implemented"},
+            "note": "Import configuration. The port can play imported CD tracks; digital MRS sequencing is not yet implemented."}
 
 
 def convert(game, extracted, log=print):

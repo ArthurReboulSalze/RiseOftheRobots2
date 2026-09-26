@@ -46,7 +46,7 @@ class ImportWindow:
         ttk.Entry(row, textvariable=self.profile, width=24).pack(side="left", padx=8)
         ttk.Label(row, text="Music mode").pack(side="left", padx=(15, 8))
         ttk.Combobox(row, textvariable=self.mode, values=("auto", "cd", "digital", "effects", "off"), state="readonly", width=12).pack(side="left")
-        ttk.Label(frame, text="Auto: CD tracks → digital MRS/MRW music → ambience → silence.\nMusic playback is not yet in the port; import preserves and configures the sources.").pack(anchor="w")
+        ttk.Label(frame, text="Auto: CD tracks → digital MRS/MRW music → ambience → silence.\nThe port plays imported CD tracks; MRS digital music is preserved but not yet implemented.").pack(anchor="w")
         self.start_button = ttk.Button(frame, text="Import and prepare assets", command=self.start)
         self.start_button.pack(anchor="w", pady=12)
         self.log = tk.Text(frame, height=14, wrap="word", state="disabled")

@@ -34,7 +34,7 @@ Separately supplied music can be WAV, MP3, FLAC, OGG or M4A. Recognized names in
 
 The game's digital music uses **MGA–MGF MRS/MRW pairs**: sequences and samples, rather than standard MIDI files. The manual and `FUN_150b4` confirm this mode (documents 08 and 09). `auto` selects CD audio, then digital music, ambience and silence according to availability. Explicit modes are `cd`, `digital`, `effects` and `off`; asking for an unavailable mode fails.
 
-**The chosen mode is saved in settings.json. Music playback and the MRS sequencer are not yet implemented in the port.** Digital banks are retained even when CD audio is chosen.
+**The chosen mode is saved in settings.json. The port currently plays imported CD tracks for its menu and combat screens; the MRS digital-music sequencer is not yet implemented.** Digital banks are retained even when CD audio is chosen.
 
 ## Optional binary analysis
 

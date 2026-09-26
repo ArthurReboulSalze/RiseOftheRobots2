@@ -56,6 +56,7 @@ int Fighter::step(uint16_t inputs) {
                 seq_pos = 0;
                 displacement = 0;
                 playing = true;
+                hit_move = -1;
                 state_change = 0;
                 mv = move();
                 break;
@@ -72,6 +73,7 @@ int Fighter::step(uint16_t inputs) {
             displacement = 0;
             move_id = t.target;
             playing = true;
+            hit_move = -1;
             return t.target;
         }
     }
@@ -96,17 +98,12 @@ int Fighter::step(uint16_t inputs) {
             displacement = 0;
             move_id = 0;
             playing = true;
+            hit_move = -1;
             return 0;
         }
     }
     // Apply current-step displacement (the caller already uses movement()).
     seq_pos++;
-    if (sound_callback) {
-        // fn_226cc : les mouvements declenchent le sample 3 (pitchs 0x5000/0x3000 = 1250/750
-        // pour-mille du sample joué a 11025) ; le sample 15 variable reste au hit.
-        const int pitch = (seq_pos % 2) ? 1250 : 750;
-        sound_callback(player_index_, 3, pitch);
-    }
     if (seq_pos >= frame_count) {
         // The end marker is not a renderable image.
         if (seq.back().end && mv->flags != 0 && mv->resume_index < frame_count) {

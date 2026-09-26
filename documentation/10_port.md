@@ -26,9 +26,9 @@ The original supplied copy has only three ANI files: 39 LLOGO frames, 61 END fra
 
 1. Decode the Director's Cut ANI streams and player timing, then integrate the complete intro and menu flow.
 2. Map physical controls and movement masks against `RISE2.CFG` and DOS play. For example, mask 0x10 leads to movement 7, but its real attack key and reach need validation; at an initial separation of 200 pixels a 98-pixel reach would miss by roughly 40 pixels.
-3. Add a box-visualization toggle (for example F1) and compare CL2 hit, hurt, and push boxes with the original. Hit re-arming currently occurs per frame and needs the DOS rule.
+3. Add a box-visualization toggle (for example F1) and compare CL2 hit, hurt, and push boxes with the original. The port now re-arms a hit on a move change rather than every simulation frame; compare the exact DOS rule.
 4. Complete hitstun, knockdowns, KO, timer, round transition, and camera clamping (`DAT_65fd6/65fda`).
-5. Play imported MRW effects at 11,025 Hz through SDL audio and apply MRS pitch/trigger rules. Integrate both CDDA tracks and the digital MGA–MGF fallback.
+5. The port now loads importer-generated 11,025 Hz MRW WAVs and lets SDL_mixer convert them to its output format. Complete source-faithful MRS timing/pitch and integrate the digital MGA–MGF fallback.
 6. Render arena GGF backgrounds, ANR animation, CTL scrolling, original fonts, and then AI.
 
 Damage tests suggest ordinary hits around 6–10 HP, or 12–20 hits from 120 HP, but the exact formula and defensive-state adjustments are documented in page 08. The Director's Cut profile will be the source for future complete content work once its extra ANI files are decoded.

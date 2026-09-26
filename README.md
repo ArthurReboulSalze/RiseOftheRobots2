@@ -44,7 +44,7 @@ You can provide WAV, MP3, FLAC, OGG or M4A files in a separate folder or ZIP wit
 
 The game also contains **sequenced digital music** in six `MGA`–`MGF` bank pairs (`.MRS` + `.MRW`). These are not ordinary MIDI files. The importer detects and retains their sequences and samples.
 
-The `auto` setting chooses CD audio, then digital music, ambience, then silence according to available data. Explicit choices are `cd`, `digital`, `effects` and `off`. **These are import settings for now:** music playback and the MRS sequencer have not yet been integrated into the port.
+The `auto` setting chooses CD audio, then digital music, ambience, then silence according to available data. Explicit choices are `cd`, `digital`, `effects` and `off`. The port plays imported CD tracks for its current menu and combat screens; the original digital MRS sequencer is retained by the importer but is not yet implemented.
 
 ### Command line
 

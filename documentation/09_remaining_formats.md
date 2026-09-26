@@ -22,11 +22,15 @@ An animation sequence consists of two-byte entries; `image = 2*b0 + (b1 & 1)` an
 
 MRW files contain unsigned 8-bit mono PCM. The silent midpoint is `0x80`. Each file starts with a u16 count and then `count` pairs of absolute u32 offset and u32 size. The original 69 banks yield 1,142 samples and account for approximately 99.8% of file bytes. For example, R0 entry 0 has offset `0x9a` and size 2,769. Director's Cut Disc 1 contains 71 banks and 1,179 entries, including the extra robots.
 
-The base export rate is 11,025 Hz. SOS playback can change it: from `FUN_3a792` through `FUN_417c9` at `0x3a893`, the rate is `(pitch_16_16 * 11025) >> 16`. The exact per-event pitch source is still being traced. The extracted samples were checked by listening; they are intelligible effects, unlike attempts to interpret MVS as PCM.
+The WAV exporter uses a base rate of 11,025 Hz. `FUN_3a792` accepts per-call playback parameters and passes the prepared sample to SOS, but the exact conversion of those parameters into a playback rate remains open; the previous simple 16.16-rate formula is not treated as established. The extracted samples were checked by listening; they are intelligible effects, unlike attempts to interpret MVS as PCM.
+
+`FUN_3a792` indexes a loaded bank as `base + 2 + sample_index * 8`, then uses that entry's absolute offset and size. `FUN_150b4` loads a separate `R<slot>.MRS`/`R<slot>.MRW` pair for each selected fighter. A direct successful-hit path, `FUN_39996`, asks SOS for sample `15` from the attacker's selected bank (source bank number = attacker index + 1). Thus the port should play sample 15 from the attacker bank once for a completed collision, rather than choose a fixed R0 effect.
+
+`FUN_226cc` is a particle/effect helper, not the fighter animation-frame advance routine. Depending on its branch, it calls sample `3` from shared bank 0 or sample `15` from a player bank. Sample 3 therefore must not be fired for every rendered fighter frame. Exact byte comparisons show deliberately identical sample-15 WAVs in several different fighter banks, so the confirmed hit effect is not necessarily unique to every robot even though each robot has its own bank. In the original 28-fighter data, those shared groups are `0/I`, `A/B`, `D/L/Z`, `G/W`, `H/X`, `M/V`, `Q/U/Y`, and `R/S`; Director's Cut additionally has `K/3` and extends `R/S` to `R/S/2`. The other sample-15 effects are distinct.
 
 ## MRS: sample sequences
 
-The 68 MRS sidecars range from 48 to 21,156 bytes. `FUN_3be83` loads MRS sequences and their MRW bank; `FUN_3a6b0` places sequence data into `DAT_705bc`. The event trigger and pitch mapping are not yet fully decoded. Preserve MRS when importing.
+The 68 MRS sidecars range from 48 to 21,156 bytes. `FUN_3be83` loads MRS sequences and their MRW bank; `FUN_3a6b0` places sequence data into `DAT_705bc`. Their header and stream reader indicate an HMI sequenced resource, but they are not proven to be a per-MVS-frame sound table. In `FUN_150b4`, player banks are loaded into slots 1 and 2 through `FUN_3c1b6`, while the sequence-playback initializer `FUN_3c1f0` follows the BGA or MGA–MGF background-bank load. The available evidence therefore treats MRS as the digital-music sequencer, not the source of fighter hit timing. The event timing and pitch conversion still need decoding. Preserve MRS when importing.
 
 ## SOUND.DAT: audio driver configuration
 
@@ -50,4 +54,4 @@ The original game supports CD audio and digital music. The user's rip has nine C
 
 ## Next reverse-engineering tasks
 
-Decode the 102 additional ANI files and their timing; finish MRS triggers and pitch; map the ten physical controls to the MVS masks; decode CHRSET fonts; and verify CDDA selection and digital-music playback against the DOS game.
+Decode the 102 additional ANI files and their timing; finish MRS event timing and pitch; map the ten physical controls to the MVS masks; decode CHRSET fonts; and verify CDDA selection and digital-music playback against the DOS game.

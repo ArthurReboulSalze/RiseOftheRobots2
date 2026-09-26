@@ -83,6 +83,8 @@ class Imports(unittest.TestCase):
         report = self.run_case(self.game, music=[music])
         self.assertEqual(report["music"]["selected"], "cd")
         self.assertEqual([t["file"] for t in report["music"]["tracks"]], ["02.wav", "03.wav"])
+        self.assertEqual(report["music"]["runtime_playback"]["cd_tracks"], "implemented")
+        self.assertEqual(report["music"]["runtime_playback"]["digital_mrs"], "not_implemented")
         self.assertTrue(any("incomplete" in w for w in report["warnings"]))
 
     def test_zip_and_iso_equal_folder(self):

@@ -13,6 +13,7 @@
 #include <vector>
 #include <cmath>
 #include <cstdlib>
+#include <filesystem>
 
 static FILE* g_log = nullptr;
 static void logf(const char* fmt, ...) {
@@ -95,53 +96,69 @@ int main(int argc, char** argv) {
         Fighter p1, p2;
 
         // Audio : SDL_mixer (convertit automatiquement les echantillons, joue les MP3).
-        Mix_Init(MIX_INIT_MP3);
+        Mix_Init(MIX_INIT_MP3 | MIX_INIT_OGG | MIX_INIT_FLAC);
         const bool audio_ok = Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 1024) == 0;
         logf("audio mixer : %s (%s)\n", audio_ok ? "OK" : "ECHEC",
              audio_ok ? "44100 stereo" : Mix_GetError());
-        Mix_Chunk* hit_wav = nullptr;
-        if (audio_ok) {
-            hit_wav = Mix_LoadWAV((assets_dir + "/audio/mrw/R0/R0_04.wav").c_str());
-            if (hit_wav) logf("son de hit charge\n");
-        }
-        // Banques sonores PAR COMBATANT : chaque robot a ses propres samples
-        // (l'impact de coup = sample 15 de la banque du robot, cf. fn_39996).
+        // Each fighter has an independent R<slot>.MRW bank.  The direct-hit
+        // path uses sample 15 from the attacker's bank (FUN_39996).
         struct FighterSounds { Mix_Chunk* samples[24] = {}; };
         FighterSounds snd[2];
 
-        // whooshes de mouvement : sample 3 du robot (fn_226cc), canaux dedies.
-        auto sound_cb = [&](int player_index, int sample_id, int pitch_permille) {
-            if (!audio_ok) return;
-            Mix_Chunk* s = snd[player_index].samples[sample_id];
-            if (!s) return;
-            Mix_PlayChannel(player_index == 0 ? 2 : 3, s, 0);
+        auto clear_fighter_sounds = [&](int player_index) {
+            for (Mix_Chunk*& sample : snd[player_index].samples) {
+                if (sample) Mix_FreeChunk(sample);
+                sample = nullptr;
+            }
         };
-        p1.sound_callback = sound_cb;
-        p2.sound_callback = sound_cb;
-        p1.player_index_ = 0;
-        p2.player_index_ = 1;
 
         auto load_fighter_sounds = [&](int player_index, char slot) {
+            clear_fighter_sounds(player_index);
             for (int i = 0; i < 24; ++i) {
                 if (!audio_ok) break;
-                const std::string path = assets_dir + "/audio/mrw_hq/R" + slot +
+                // The importer produces these original 11,025 Hz WAVs. SDL_mixer
+                // converts them to the 44.1 kHz output device as it loads them.
+                const std::string path = assets_dir + "/audio/mrw/R" + slot +
                                          "/R" + slot + "_" +
                                          (i < 10 ? "0" : "") + std::to_string(i) + ".wav";
                 snd[player_index].samples[i] = Mix_LoadWAV(path.c_str());
             }
             int loaded = 0;
             for (int i = 0; i < 24; ++i) if (snd[player_index].samples[i]) ++loaded;
-            logf("sons joueur %d (%c) : %d/24\n", player_index + 1, slot, loaded);
+            logf("sons joueur %d (%c) : %d/24 ; impact[15]=%s\n", player_index + 1, slot,
+                 loaded, snd[player_index].samples[15] ? "OK" : "absent");
         };
-        // Musique : CD rippé (Piste 02 = titre/menu ; 03-10 = combat, tirage aléatoire).
+        // Music lives beside a normal imported profile (../music/02.mp3, etc.).
+        // Keep the older EXTRACTED/audio/cd location as a fallback for existing local installs.
+        const std::filesystem::path asset_path(assets_dir);
+        const std::vector<std::filesystem::path> music_dirs{
+            asset_path.parent_path() / "music",
+            asset_path / "audio" / "cd",
+        };
+        auto music_track_path = [&](int track_number) {
+            char number[3];
+            snprintf(number, sizeof(number), "%02d", track_number);
+            static const char* extensions[] = {".wav", ".mp3", ".flac", ".ogg", ".m4a"};
+            for (const auto& directory : music_dirs) {
+                for (const char* extension : extensions) {
+                    const auto imported = directory / (std::string(number) + extension);
+                    if (std::filesystem::exists(imported)) return imported;
+                    const auto legacy = directory / ("Piste " + std::string(number) + extension);
+                    if (std::filesystem::exists(legacy)) return legacy;
+                }
+            }
+            return std::filesystem::path{};
+        };
+
+        // CD audio: track 02 is the menu; 03–10 are selected for combat.
         Mix_Music* menu_music = nullptr;
         std::vector<Mix_Music*> fight_tracks;
         if (audio_ok) {
-            menu_music = Mix_LoadMUS((assets_dir + "/audio/cd/Piste 02.mp3").c_str());
+            const auto menu_path = music_track_path(2);
+            if (!menu_path.empty()) menu_music = Mix_LoadMUS(menu_path.string().c_str());
             for (int n = 3; n <= 10; ++n) {
-                char name[32];
-                snprintf(name, sizeof(name), "/audio/cd/Piste %02d.mp3", n);
-                Mix_Music* m = Mix_LoadMUS((assets_dir + name).c_str());
+                const auto track_path = music_track_path(n);
+                Mix_Music* m = track_path.empty() ? nullptr : Mix_LoadMUS(track_path.string().c_str());
                 if (m) fight_tracks.push_back(m);
             }
             logf("musique : menu=%s ; %d pistes de combat\n",
@@ -287,8 +304,6 @@ int main(int argc, char** argv) {
                 if (down(p2keys[4]) || down(p2keys[5]) || down(p2keys[6])) in2 |= 0x01;
                 if (down(p2keys[7]) || down(p2keys[8]) || down(p2keys[9])) in2 |= 0x20;
 
-                p1.hit_move = -1; // Simplified re-arm: one hit per active attack frame.
-                p2.hit_move = -1;
                 int old_move1 = p1.move_id, old_move2 = p2.move_id;
 
                 // IA minimale (placeholder du 35eb8) : s'approche, cogne de temps en temps.
@@ -338,7 +353,9 @@ int main(int argc, char** argv) {
                                          (a.y + b.y) / 2);
                             {
                                 const int bank = (&att == &p1) ? 0 : 1;
-                                if (snd[bank].samples[15]) Mix_PlayChannel(-1, snd[bank].samples[15], 0);
+                                if (audio_ok && snd[bank].samples[15]) {
+                                    Mix_PlayChannel(-1, snd[bank].samples[15], 0);
+                                }
                             }
                             fprintf(stderr, "HIT %s -> %s : dmg=%d (vie %s=%d)\n", na, nv, dmg, nv, vic.health);
                             return;
@@ -349,9 +366,6 @@ int main(int argc, char** argv) {
                 try_hit(p2, p1, "p2", "p1", att2, bod1);
                 if (p1.flash > 0) p1.flash--;
                 if (p2.flash > 0) p2.flash--;
-                if (p1.hit_move != p1.move_id) p1.hit_move = -1;
-                if (p2.hit_move != p2.move_id) p2.hit_move = -1;
-
                 // particules
                 for (auto& pt : particles) { pt.x += pt.vx; pt.y += pt.vy; pt.vy += 0.15f; --pt.life; }
                 particles.erase(std::remove_if(particles.begin(), particles.end(),
@@ -428,6 +442,11 @@ int main(int argc, char** argv) {
             SDL_RenderPresent(ren);
             SDL_Delay(1);
         }
+        Mix_HaltMusic();
+        clear_fighter_sounds(0);
+        clear_fighter_sounds(1);
+        if (menu_music) Mix_FreeMusic(menu_music);
+        for (Mix_Music* track : fight_tracks) Mix_FreeMusic(track);
     } catch (const std::exception& e) {
         fprintf(stderr, "ERREUR: %s\n", e.what());
         ret = 1;
