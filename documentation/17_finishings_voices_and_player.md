@@ -69,7 +69,7 @@ Exported manifests use the normal 25 Hz counter and native wait parameters:
 | END / ENL | 1 | Same waits |
 | LINK / LINL / VICT / VICL | 6 | Same waits |
 
-The parameters come from the LLOGO call near `0x35221–0x35232` and wrappers `FUN_346f8`, `FUN_34742`, `FUN_3478c`. Ordinary ANI motion is consequently **12.5 frames/second**, with longer initial holds. Alternate DOS slowdown states exist and remain outside this default playback model. Movie timing is independent of the port's current 15 Hz combat simulation.
+The parameters come from the LLOGO call near `0x35221–0x35232` and wrappers `FUN_346f8`, `FUN_34742`, `FUN_3478c`. Ordinary ANI motion is consequently **12.5 frames/second**, with longer initial holds. Alternate DOS slowdown states exist and remain outside this default playback model. Movie timing is independent of the port's combat scheduler, now also running on the recovered 25 Hz logical cadence; [document 08](08_engine.md) records the combat correction.
 
 ## Optional FLC movies
 

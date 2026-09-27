@@ -1,4 +1,4 @@
-// Rise 2 port skeleton: SDL window 1280x800 (logical 640x400), 15 Hz simulation,
+// Rise 2 port: SDL window 1280x800 (logical 640x400), native 25 Hz simulation,
 // Two animated high-resolution fighters (RBT atlases and MVS movement transitions).
 #include "assets.h"
 #include "audio.h"
@@ -7,6 +7,7 @@
 #include "combat.h"
 #include "frontend.h"
 #include "presentation.h"
+#include "simulation_clock.h"
 #include "SDL.h"
 #include "SDL_image.h"
 #include "SDL_mixer.h"
@@ -79,6 +80,10 @@ int main(int argc, char** argv) {
         Combat combat(assets->load_combat(),assets->load_atlas("EXTRA"),assets->load_cl2("EXTRA"));
         bool move_list = false, second_keyboard = false;
         int ai_clock = 0;
+        SimulationClock fight_clock;
+        const double counter_frequency = static_cast<double>(SDL_GetPerformanceFrequency());
+        Uint64 previous_counter = SDL_GetPerformanceCounter();
+        logf("combat clock: %d Hz (DOS counter), independent of rendering\n",SimulationClock::frequency);
 
         // Audio : SDL_mixer (convertit automatiquement les echantillons, joue les MP3).
         Mix_Init(MIX_INIT_MP3 | MIX_INIT_OGG | MIX_INIT_FLAC);
@@ -222,6 +227,8 @@ int main(int argc, char** argv) {
             load_arena();
             play_random_fight_music();
             if (audio_ok) announcer.fight();
+            fight_clock.reset();
+            previous_counter = SDL_GetPerformanceCounter(); // Do not simulate asset-loading time.
         };
 
         // Touches configurees (RISE2.CFG du port) : 10 entrees par joueur.
@@ -237,10 +244,6 @@ int main(int argc, char** argv) {
         int pause_choice = 0;
 
         bool run = true;
-        constexpr double tick_seconds = 1.0 / 15.0;
-        const double counter_frequency = static_cast<double>(SDL_GetPerformanceFrequency());
-        Uint64 previous_counter = SDL_GetPerformanceCounter();
-        double accumulator = 0.0;
         bool video_music_paused=false;
         char announced_slots[2]={0,0};
         Screen previous_screen=frontend.screen();
@@ -283,10 +286,8 @@ int main(int argc, char** argv) {
             if (frontend.quit_requested()) run = false;
             apply_options();
             const Uint64 counter = SDL_GetPerformanceCounter();
-            double elapsed = static_cast<double>(counter - previous_counter) / counter_frequency;
+            const double elapsed = static_cast<double>(counter - previous_counter) / counter_frequency;
             previous_counter = counter;
-            if (elapsed > tick_seconds * 2) elapsed = tick_seconds * 2;
-            accumulator += elapsed;
             const int intro_frame=frontend.animation_frame();
             const Screen old_screen=frontend.screen();
             frontend.update(elapsed);
@@ -339,9 +340,9 @@ int main(int argc, char** argv) {
                 p1.sample_inputs(in1);
                 if (second_keyboard) p2.sample_inputs(in2);
             }
-            if (frontend.screen() == Screen::Fight && !paused && !move_list && accumulator >= tick_seconds) {
-                accumulator -= tick_seconds;
-                if (accumulator >= tick_seconds) accumulator = 0.0;
+            const int pending_ticks = fight_clock.advance(elapsed,
+                frontend.screen() == Screen::Fight && !paused && !move_list && combat.phase() != RoundPhase::Result);
+            for (int tick = 0; tick < pending_ticks; ++tick) {
                 // Basic sparring AI; original AIP decision rules are still separate.
                 ++ai_clock;
                 if (!second_keyboard && combat.phase() == RoundPhase::Fighting) {
@@ -360,7 +361,7 @@ int main(int argc, char** argv) {
                     logf("HIT p%d damage=%d blocked=%d projectile=%d hp=%d/%d\n",
                          hit.attacker+1,hit.damage,hit.blocked,hit.projectile,p1.health,p2.health);
                 }
-            } else if (paused || move_list) accumulator = 0.0;
+            }
             if (audio_ok) announcer.update();
 
             presentation.begin();

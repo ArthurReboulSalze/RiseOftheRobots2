@@ -47,6 +47,10 @@ add_custom_command(TARGET rotr2 POST_BUILD
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(rotr2_timing_test tests/timing_test.cpp)
+  target_include_directories(rotr2_timing_test PRIVATE src)
+  add_test(NAME simulation_timing COMMAND rotr2_timing_test)
+
   add_executable(rotr2_options_test tests/options_test.cpp src/settings.cpp src/filters.cpp)
   target_include_directories(rotr2_options_test PRIVATE ${TP} src)
   add_test(NAME options_and_filters COMMAND rotr2_options_test)

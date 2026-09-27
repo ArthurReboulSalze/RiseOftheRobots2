@@ -4,6 +4,7 @@
 #include "assets.h"
 #include "fighter.h"
 #include "combat.h"
+#include "simulation_clock.h"
 #include "frontend.h"
 #include "SDL.h"
 #include "SDL_image.h"
@@ -257,16 +258,27 @@ int main(int argc, char** argv) {
             const int distance=combat.assisted_finishing_distance(cyborg,victim,58);
             combat.sample_attack_buttons(winner==0 ? 1:0,winner==1 ? 1:0);
             bool death=false,started=false;
-            for (int tick=0;tick<210;++tick) {
-                combat.tick(p1,p2,0,0);started|=cyborg.move_id==58;death|=victim.move_id==59;
-                if (tick==15 && winner==0 && !wall) {
-                    SDL_SetRenderDrawColor(ren,0,0,0,255);SDL_RenderClear(ren);
-                    draw_fighter(p1);draw_fighter(p2);combat.render(ren,p1,p2,0);
-                    IMG_SavePNG(surface,(out_dir+"/cyborg_finishing_"+std::to_string(direction)+".png").c_str());
+            SimulationClock clock;
+            const int display_hz=wall ? 10:60;
+            int tick=0, death_tick=-1, result_tick=-1;
+            for (int frame=0;frame<9*display_hz;++frame) {
+                const int pending=clock.advance(1.0/display_hz);
+                for (int update=0;update<pending && tick<210;++update,++tick) {
+                    combat.tick(p1,p2,0,0);started|=cyborg.move_id==58;death|=victim.move_id==59;
+                    if (victim.move_id==59 && death_tick<0) death_tick=tick+1;
+                    if (combat.phase()==RoundPhase::Result && result_tick<0) result_tick=tick+1;
+                    if (tick==15 && winner==0 && !wall) {
+                        SDL_SetRenderDrawColor(ren,0,0,0,255);SDL_RenderClear(ren);
+                        draw_fighter(p1);draw_fighter(p2);combat.render(ren,p1,p2,0);
+                        IMG_SavePNG(surface,(out_dir+"/cyborg_finishing_"+std::to_string(direction)+".png").c_str());
+                    }
                 }
             }
-            printf("Cyborg finishing: player=%d facing=%d wall=%d distance=%d\n",winner+1,direction,wall,distance);
-            check(started && death,"Cyborg : touche de finishing et veritable reaction de mort 59, meme pres du mur");
+            printf("Cyborg finishing: player=%d facing=%d wall=%d distance=%d display=%d Hz death=%.2fs result=%.2fs\n",
+                   winner+1,direction,wall,distance,display_hz,
+                   death_tick*SimulationClock::tick_seconds,result_tick*SimulationClock::tick_seconds);
+            check(tick==210 && started && death && result_tick>0,
+                  "Cyborg : finishing et mort 59 a cadence DOS, meme pres du mur ou avec un affichage lent");
         }
         SDL_DestroyTexture(arena_tex);
         if (arena) SDL_FreeSurface(arena);

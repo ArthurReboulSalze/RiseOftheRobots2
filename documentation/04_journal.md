@@ -2,6 +2,14 @@
 
 This is a chronological research log. Early interpretations are preserved here as history; documents 05, 07, 08, 09, and 10 describe the corrected current understanding. In particular, early claims that MVS held sound and MRW held video were disproved. The French originals remain in the local Git history; this public version records their findings in English.
 
+## Session 33 — 2026-09-27: verified DOS combat and finishing cadence
+
+The user's emulator comparison showed the port was too slow, especially during finishings. The provisional 15 Hz clock was replaced with the native **25 Hz** logical cadence, a 5/3 speed increase. The original 100 Hz IRQ accumulates 25/100 into the same pending counter used by ordinary combat and the post-round loop. Both supplied EXRs were checked: the new `verify_x86_timing.py` executes the initialization stores, counter arithmetic and pending-tick consumer under Unicorn. Three consecutive 100-interrupt periods yield 25 updates each; normal and post-round consumers retain all pending updates, while paused combat does not advance.
+
+The runtime no longer discards backlog after one update per render. It now consumes every pending 40 ms step, retains fractional time, and resets on menus, pause and match loading. Long stalls are bounded to 250 ms per render as a port responsiveness limit. Authored finishing sequences and repetitions remain intact; their pace follows the same combat clock. ANI/FLC timing is separate. The 200-tick finishing-input window is now eight seconds.
+
+Release compilation and all five CTests pass, including display-rate independence at 10/30/60/144 iterations per second, catch-up and pause/resume. Both private profiles pass the existing combat checks. Eight Cyborg player/facing/wall cases per profile reach victim movement 59 after seven ticks and the result after 103 ticks (4.12 simulated seconds), at simulated rendering rates of both 10 and 60 Hz. These are automated port measurements, not recorded DOS finishing durations or actual display FPS. The desktop executable was rebuilt; user gameplay comparison remains necessary. Source evidence and verifier addresses are in document 08.
+
 ## Session 32 — 2026-09-27: finishing distance, base speech and complete movie extraction
 
 Cyborg's easy finishing started but missed its decisive image-333 CL2 box at the previous universal 100-pixel gap. The assist now fits signed death attacks to the victim's body and preserves separation near walls by moving both fighters. Cyborg versus Surpressor chooses 226 logical pixels and reaches victim movement 59 in all eight player/facing/wall combinations. An initial suspicion of a missing finishing movie was incorrect. Native `FUN_2695b` has a range check, but its observed player-side indexing conflicts with the robot-like static table; exact manual eligibility remains unresolved.

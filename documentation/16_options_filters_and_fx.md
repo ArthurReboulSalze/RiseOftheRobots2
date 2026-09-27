@@ -31,7 +31,7 @@ Missing actions remain unavailable. Some native finishing callbacks, linked cine
 
 ## Display filters
 
-All filters process the composed 640×400 scene, preserving its aspect ratio when the window is resized. They affect menus, fighters, FX and HUD together and do not change the 15 Hz simulation clock.
+All filters process the composed 640×400 scene, preserving its aspect ratio when the window is resized. They affect menus, fighters, FX and HUD together and do not change the recovered 25 Hz simulation clock. Pending simulation updates catch up when a rendered frame is slower than the combat tick; see [document 08](08_engine.md).
 
 | Mode | Rendering |
 |---|---|

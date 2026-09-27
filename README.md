@@ -88,6 +88,8 @@ ctest --test-dir PORT/build -C Release --output-on-failure
 
 The current flow shows the logos, title screen, character selection and an initial fight. Enter confirms and Escape goes back. At selection, the arrow keys control player 1 and A/D control player 2. The older edition has 28 robots; Director's Cut adds two more.
 
+Combat and finishing animations advance at the recovered **25 updates/second** DOS cadence, independently of display refresh rate. Slow rendered frames catch up on pending simulation updates.
+
 Open **OPTIONS** from the title menu to adjust music and game volume separately, configure **KEY MAPPING**, enable **EASY FINISHINGS**, or choose a display filter: original pixels, bilinear, Scale2x, Scale3x, xBR smoothing or a soft CRT effect. Settings are saved for the selected private profile. Arrow keys select and adjust; Enter changes or opens a setting; Escape returns.
 
 Combat uses the configured light, medium and heavy punch/kick keys. **F1** pauses and displays the selected robots' commands; **F2** switches player 2 between basic CPU sparring and its configured keyboard. After KO, enter an available finishing command, or release and press a configured attack key with easy finishings enabled. The assist positions fighters using the finishing's source collision data. A robot with one available finishing accepts any of the six attack keys; multiple variants follow light, medium and heavy order. Enter after the result starts a rematch. See [options and FX corrections](documentation/16_options_filters_and_fx.md) for details.

@@ -31,6 +31,32 @@ Analysis starts at the blitter (`FUN_1c819`) and follows the combat cluster in `
 
 The camera moves when the fighters' horizontal separation reaches approximately 100 units. `DAT_65fd6/65fda` holds arena bounds. The original health maximum is 120 HP.
 
+## Verified combat clock
+
+The original combat cadence is **25 simulation updates per second**, not the earlier port's provisional 15 Hz. The PIT is programmed for a 100 Hz interrupt. Initialization at `0x11101` stores 25 in the logical-rate word and 100 in its divisor word. The interrupt callback adds 25 to an accumulator and increments the pending-tick counter whenever it exceeds 100. This same counter supplies normal combat and the post-round/finishing phase.
+
+| Timing role | Older DOS | Director's Cut Disc 1 |
+|---|---|---|
+| IRQ callback | `0x1444d` | `0x144fe` |
+| Rate / divisor words | `0x663a2` / `0x663a0` | `0x663b0` / `0x663ae` |
+| Pending-tick counter | `0x6636a` | `0x66384` |
+| Pending-tick consumer | `0x1454e` | `0x145ff` |
+| Combat update callback | `0x2163a` | `0x2188a` |
+| Consumed tick count | `0x66372` | `0x6635a` |
+
+`FUN_1454e` copies and clears the counter, then runs one combat update for **every** pending tick. It is called by the ordinary round loop and `FUN_15403` after KO. Paused combat consumes elapsed ticks without advancing the fighters. The interrupt also updates the command-history clock at this logical rate. Repeated MVS images and the three authored strength-dependent streams still determine individual visual holds; 25 simulation updates do not imply 25 distinct sprite images.
+
+`TOOLS/verify_x86_timing.py` runs each supplied executable's actual initialization stores, counter arithmetic and pending-tick loop under Unicorn, counting/skipping external callbacks. Both editions produce 25 ticks in each of three consecutive 100-interrupt periods after cold-start alignment. Pending counts 0/1/7 produce 0/1/7 combat calls; the post-round phase also consumes all seven; pause produces no combat calls. This verifies the cadence and backlog behavior without claiming a measured emulator display FPS.
+
+The port now uses `SimulationClock` at 25 Hz and consumes pending updates before rendering, replacing the previous one-update-per-render limit and dropped backlog. Menu/pause/match-loading time does not become a burst of combat updates. Long stalls are bounded to 250 ms per rendered iteration; this is a port responsiveness limit, not the native counter's unrestricted behavior. ANI/FLC playback retains its separate timing. The 200-tick finishing-input window now lasts eight seconds; finishing sequences themselves keep their authored entries and holds.
+
+```powershell
+python TOOLS/verify_x86_timing.py --source LOCAL/my-game/game --output LOCAL/my-game/ANALYSIS/timing_x86.json
+ctest --test-dir PORT/build -C Release --output-on-failure
+```
+
+The verifier requires the optional Unicorn dependency documented in its header and accepts the two mapped executable hashes. It bundles no original code. Automated port checks also compare simulation at 10/30/60/144 rendered iterations per second, fractional catch-up and pause/resume. Real Cyborg finishing checks in both profiles reach the same result at 103 updates (4.12 simulated seconds), at both 10 and 60 rendered iterations per second. Full native finishing callbacks and interactive feel still require comparison.
+
 ## Player state
 
 Player 0's movement ID is at `0x6620e` and player 1's at `0x662a5`; stride is `0x97` (151 bytes). The dword at `0x6620c` has the movement ID in its high word; the sprite-image index is a separate word at `0x66210`.
