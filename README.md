@@ -144,6 +144,6 @@ python TOOLS/audit_repo.py --staged
 
 After an import, `PORT/build/Release/rotr2_asset_smoke.exe LOCAL/my-game/EXTRACTED` checks menus and every robot bank without opening a window.
 
-Automated tests build small synthetic disc images and samples; they need no original game data. The Git index audit allows only known code and documentation paths plus the approved banner and screenshot. `SRC`, `LOCAL`, `EXTRACTED`, captures, Ghidra projects, builds and downloaded dependencies are excluded.
+Automated tests build small synthetic disc images and samples; they need no original game data. The Git index audit allows only known code and documentation paths plus the approved project icon, banner and screenshot. `SRC`, `LOCAL`, `EXTRACTED`, captures, Ghidra projects, builds and downloaded dependencies are excluded.
 
-Before release, the physical-CD path still needs real hardware validation. SDL2/SDL2_image, nlohmann/json, Pillow and pycdlib retain their own licenses; see their distributions. The xBR implementation retains Hyllian's MIT copyright and permission notice in `PORT/src/filters.cpp`.
+The physical-CD path still needs real hardware validation. SDL2/SDL2_image, nlohmann/json, Pillow and pycdlib retain their own licenses; the Windows package includes relevant dependency notices. The xBR implementation retains Hyllian's MIT copyright and permission notice in `PORT/src/filters.cpp`.
