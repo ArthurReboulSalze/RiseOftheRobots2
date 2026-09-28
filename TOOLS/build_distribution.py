@@ -6,11 +6,13 @@ files are never included. The generated bundle stays under ignored LOCAL/.
 
 import argparse
 import hashlib
+from importlib import metadata
 import json
 from pathlib import Path
 import shutil
 import subprocess
 import sys
+from PIL import Image
 
 from project_paths import ROOT
 
@@ -48,10 +50,19 @@ def main(argv=None) -> None:
     output.mkdir(parents=True, exist_ok=True)
     work.mkdir(parents=True, exist_ok=True)
     template = ROOT / "TOOLS/templates/image_gallery.html"
+    icon_png = ROOT / "assets/ROTR2_icon.png"
+    if not icon_png.is_file():
+        parser.error(f"Missing project icon: {icon_png}")
+    icon_ico = work / "ROTR2_icon.ico"
+    with Image.open(icon_png) as source_icon:
+        source_icon.save(icon_ico, format="ICO", sizes=[(16, 16), (24, 24), (32, 32),
+                                                         (48, 48), (64, 64), (128, 128), (256, 256)])
     command = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean",
                "--onedir", "--hide-console", "hide-early", "--name", "Rise2",
+               "--icon", str(icon_ico),
                "--paths", str(ROOT / "TOOLS"),
                "--add-data", f"{template}:TOOLS/templates",
+               "--add-data", f"{icon_ico}:assets",
                "--distpath", str(output), "--workpath", str(work),
                "--specpath", str(work), str(ROOT / "TOOLS/launcher.py")]
     subprocess.run(command, check=True, cwd=ROOT)
@@ -60,10 +71,27 @@ def main(argv=None) -> None:
     runtime.mkdir(exist_ok=True)
     for name in ("rotr2.exe", *DLLS):
         shutil.copy2(native / name, runtime / name)
+    shutil.copy2(icon_png, runtime / icon_png.name)
     licenses = runtime / "licenses"
     licenses.mkdir(exist_ok=True)
     for name in SDL_PACKAGES:
         shutil.copy2(ROOT / "PORT/thirdparty" / name / "LICENSE.txt", licenses / f"{name}.txt")
+    for name in ("Pillow", "pycdlib", "PyInstaller", "pyinstaller-hooks-contrib",
+                 "altgraph", "packaging", "pefile", "pywin32-ctypes"):
+        distribution = metadata.distribution(name)
+        notices = [entry for entry in distribution.files or ()
+                   if entry.name.upper().startswith(("LICENSE", "LICENCE", "COPYING"))
+                   and ".dist-info" in str(entry)]
+        if not notices:
+            parser.error(f"Missing third-party license notice: {name}")
+        for entry in notices:
+            target = licenses / name / entry.name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(distribution.locate_file(entry), target)
+    python_license = Path(sys.base_prefix) / "LICENSE.txt"
+    if not python_license.is_file():
+        parser.error(f"Missing Python license: {python_license}")
+    shutil.copy2(python_license, licenses / "Python.txt")
     shutil.copy2(ROOT / "LICENSE", package / "LICENSE.txt")
     (package / "START_HERE.txt").write_text(
         "Rise 2 : Resurrection Port\n\n"
@@ -72,7 +100,8 @@ def main(argv=None) -> None:
         "under your Windows local application-data folder, then starts the game. "
         "No game data is bundled. Keep this entire folder together.\n",
         encoding="utf-8")
-    files = [package / "Rise2.exe", *(runtime / name for name in ("rotr2.exe", *DLLS))]
+    files = [package / "Rise2.exe", *(runtime / name for name in ("rotr2.exe", *DLLS)),
+             runtime / icon_png.name]
     (package / "package-manifest.json").write_text(
         json.dumps({"schema": 1, "files": {str(path.relative_to(package)).replace("\\", "/"): sha256(path)
                                            for path in files}}, indent=2) + "\n",

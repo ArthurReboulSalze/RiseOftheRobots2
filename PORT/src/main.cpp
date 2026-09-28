@@ -63,6 +63,18 @@ int main(int argc, char** argv) {
     SDL_Window* win = SDL_CreateWindow("Rise 2 : Resurrection Port",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 800,
         SDL_WINDOW_RESIZABLE);
+    if (win) {
+        char* base_path = SDL_GetBasePath();
+        if (base_path) {
+            const std::filesystem::path icon_path = std::filesystem::path(base_path) / "ROTR2_icon.png";
+            SDL_Surface* icon = IMG_Load(icon_path.string().c_str());
+            if (icon) {
+                SDL_SetWindowIcon(win, icon);
+                SDL_FreeSurface(icon);
+            }
+            SDL_free(base_path);
+        }
+    }
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
     SDL_Renderer* ren = SDL_CreateRenderer(win, -1,
         SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_TARGETTEXTURE);

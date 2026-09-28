@@ -62,8 +62,9 @@ def verify_package() -> list[str]:
     files = [game_executable()]
     if getattr(sys, "frozen", False):
         files += [install_root() / "runtime" / name for name in
-                  ("SDL2.dll", "SDL2_image.dll", "SDL2_mixer.dll")]
+                  ("SDL2.dll", "SDL2_image.dll", "SDL2_mixer.dll", "ROTR2_icon.png")]
         files.append(ROOT / "TOOLS" / "templates" / "image_gallery.html")
+        files.append(ROOT / "assets" / "ROTR2_icon.ico")
     missing = [str(path) for path in files if not path.is_file()]
     if getattr(sys, "frozen", False) and not missing:
         import hashlib
@@ -74,7 +75,8 @@ def verify_package() -> list[str]:
             try:
                 entries = json.loads(manifest.read_text(encoding="utf-8"))["files"]
                 expected_names = {"Rise2.exe", "runtime/rotr2.exe", "runtime/SDL2.dll",
-                                  "runtime/SDL2_image.dll", "runtime/SDL2_mixer.dll"}
+                                  "runtime/SDL2_image.dll", "runtime/SDL2_mixer.dll",
+                                  "runtime/ROTR2_icon.png"}
                 if set(entries) != expected_names:
                     raise ValueError("Unexpected package manifest entries")
                 for name, expected in entries.items():
@@ -101,6 +103,9 @@ def launch_game(profile: Path) -> None:
 def show_launcher(root_dir: Path, smoke=False) -> None:
     root = tk.Tk()
     root.title("Rise 2 : Resurrection Port")
+    icon_path = ROOT / "assets" / "ROTR2_icon.ico"
+    if icon_path.is_file():
+        root.iconbitmap(default=str(icon_path))
 
     def start_game(profile: Path) -> None:
         try:

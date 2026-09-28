@@ -8,7 +8,9 @@ An experimental community port of **Rise 2: Resurrection**, built with C++17 and
 
 *Work-in-progress combat in the current port.*
 
-This repository contains our code, tools, research notes, project banner and this in-game screenshot. It contains no standalone original game files, extracted artwork, movies, music, DOS executables or decompiler output. Imported and converted data stay on your computer. This is an independent project, unaffiliated with the game's rights holders. Our code and documentation are available under the [MIT license](LICENSE); the game data retain their owners' rights.
+The [Windows x64 pre-release](https://github.com/ArthurReboulSalze/RiseOftheRobots2/releases) provides a ready-to-run ZIP. Extract the whole folder and start `Rise2.exe`; the project icon appears on the launcher and game windows.
+
+This repository contains our code, tools, research notes, project icon, banner and this in-game screenshot. It contains no standalone original game files, extracted artwork, movies, music, DOS executables or decompiler output. Imported and converted data stay on your computer. This is an independent project, unaffiliated with the game's rights holders. Our code and documentation are available under the [MIT license](LICENSE); the game data retain their owners' rights.
 
 ## Import your copy
 
