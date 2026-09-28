@@ -56,22 +56,22 @@ The supplied VS reference shows a dark patterned backdrop, large opposing robot 
 
 ## Combat reference
 
-The source screenshots show player names and scores at the top edges, two mirrored health bars, a red central timer, yellow super indicators, and a scrolling arena with textured ground. The current port has an initial HUD, health/super state, source animations, hits, FX and a finishing/result/rematch phase. Full score, timer and round progression still need integration.
+The source screenshots show player names and scores at the top edges, two mirrored health bars, a red central timer, small player power pictograms, bottom super indicators, and a scrolling arena with textured ground. The port now draws the combat HUD at the reference's 640×400 coordinates using the original 12×12/24×24 CHRSET glyphs. Pictograms are specific to each robot: `FUN_132b6` reads an 18-word initial-power table at `RISE2.EXR:0x50660`, sets the corresponding bit in each fighter's power mask, and `FUN_16d4e` renders set bits with CHRSET glyphs `v` through `{`. `TOOLS/extract_power_icons.py` extracts that table from either verified EXR edition during import. Acquired power bits are also shown in a fight. The mapping is proven for the standard A–R slots; additional/hidden slots currently show no initial pictogram until their original rule is identified. The colour glyphs use the shared `EXTRA.PAL` source palette. The 90-second display counts active 25 Hz fighting ticks and freezes with the match; it currently does **not** end a round at zero. Scores display zero until original scoring and round progression are implemented. Health and super indicators use live fighter state; exact colour remapping and power-mask changes still need DOS playback comparison.
 
 F1 pauses to show both robots' source commands and configured controls, including finishing shortcuts when enabled. F2 switches player 2 between basic CPU sparring and its configured keyboard. See [combat commands and FX](15_combat_commands_and_fx.md) for supported behavior and limits.
 
 ## Pause menu
 
-Escape opens the existing pause menu:
+Escape opens the pause menu over the live arena, in the original 24×24 font and near the source capture's lower-screen position:
 
 ```text
 CONTINUE MATCH
-F9  CALIBRATE JOYSTICKS
-F10 QUIT MATCH
+# CALIBRATE JOYSTICKS #
+$ QUIT MATCH $
 ```
 
-The overlay freezes combat. Continuing resumes it; quitting returns to selection. Joystick calibration is currently a placeholder.
+The `#` and `$` characters are the source font's F9/F10 keycap glyphs (as used by the original `RISE.FRA` strings), rather than literal punctuation on screen. The overlay freezes combat without darkening the entire scene. Continuing resumes it; quitting returns to selection. Joystick calibration is currently a placeholder. The old F1/F2 help footer has been removed from normal play; the shortcuts remain available.
 
 ## Rendering and data
 
-Screens compose at 640×400, displayed in a resizable window with preserved aspect ratio and the selected filter. Title/menu backgrounds are GGF resources; portraits are VSFACE/V4FACE; arenas are 800×400 AG-family images. The port's font renderer uses imported font data; original text rendering was identified at `FUN_1fa80`. Decoded assets and reference screenshots remain private and are not shipped in the repository.
+Screens compose at 640×400, displayed in a resizable window with preserved aspect ratio and the selected filter. Title/menu backgrounds are GGF resources; portraits are VSFACE/V4FACE; arenas are 800×400 AG-family images. `TOOLS/extract_chrset.py` decodes owned CHRSET1/2/3 files and the shared `EXTRA.PAL` during import into private `ui/charset1.png` through `charset3.png`; no glyph artwork is shipped in the repository. Other menus still use the earlier generated font until their original layouts are reconstructed. Original text rendering was identified at `FUN_1fa80`. Decoded assets and reference screenshots remain private.

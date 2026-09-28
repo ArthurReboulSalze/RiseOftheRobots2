@@ -258,6 +258,10 @@ def convert(game, extracted, log=print):
         ("extract_mrw_audio.py", "--source", game, "--output", extracted / "audio/mrw"),
         ("extract_ani.py", "--source-dir", game, "--output-dir", extracted / "video"),
         ("build_ui_font.py", "--output", extracted / "ui/font.png"),
+        ("extract_chrset.py", "--source", game, "--output", extracted / "ui",
+         "--palette", game / "EXTRA.PAL"),
+        ("extract_power_icons.py", "--source", game,
+         "--output", extracted / "ui/initial_power_icons.json"),
         ("build_image_gallery.py", "--extracted", extracted),
     ]
     for job in jobs:

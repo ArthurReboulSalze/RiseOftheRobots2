@@ -96,6 +96,7 @@ public:
     const MvsBank* load_mvs(const std::string& bank);
     const Cl2Bank* load_cl2(const std::string& robot_letter);
     const CombatData* load_combat();
+    int initial_power_icon(char slot) const;
     const std::string& dir() const { return m_dir; }
 
 private:
@@ -108,4 +109,5 @@ private:
     std::unordered_map<std::string, Cl2Bank> m_cl2;
     CombatData m_combat;
     bool m_combat_loaded = false;
+    std::unordered_map<char,int> m_initial_power_icons;
 };

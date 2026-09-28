@@ -19,7 +19,26 @@ static std::string read_file(const std::string& path) {
 }
 
 Assets::Assets(SDL_Renderer* renderer, const std::string& extracted_dir)
-    : m_renderer(renderer), m_dir(extracted_dir) {}
+    : m_renderer(renderer), m_dir(extracted_dir) {
+    const std::string path=m_dir+"/ui/initial_power_icons.json";
+    FILE* file=fopen(path.c_str(),"rb");
+    if (file) {
+        fclose(file);
+        const auto data=json::parse(read_file(path));
+        for (auto it=data["initial_power_icons"].begin();it!=data["initial_power_icons"].end();++it) {
+            if (it.key().size()!=1 || !it.value().is_number_integer())
+                throw std::runtime_error("Invalid power-icon mapping: "+path);
+            const int index=it.value().get<int>();
+            if (index<0 || index>5) throw std::runtime_error("Invalid power-icon index: "+path);
+            m_initial_power_icons.emplace(it.key()[0],index);
+        }
+    }
+}
+
+int Assets::initial_power_icon(char slot) const {
+    const auto found=m_initial_power_icons.find(slot);
+    return found==m_initial_power_icons.end() ? -1 : found->second;
+}
 
 const CombatData* Assets::load_combat() {
     if (m_combat_loaded) return &m_combat;

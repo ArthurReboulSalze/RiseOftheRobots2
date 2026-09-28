@@ -36,6 +36,7 @@ private:
     SDL_Renderer* renderer_;
     Assets& assets_;
     UiFont font_;
+    GameFont game_font_;
     const VideoBank* intro_;
     const AtlasBank* portraits_;
     SDL_Texture* title_;

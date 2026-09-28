@@ -77,9 +77,11 @@ int main(int argc, char** argv) {
         Presentation presentation(ren);
         Fighter p1, p2;
         UiFont fight_font(ren,assets_dir);
+        GameFont game_font(ren,assets_dir);
         Combat combat(assets->load_combat(),assets->load_atlas("EXTRA"),assets->load_cl2("EXTRA"));
         bool move_list = false, second_keyboard = false;
         int ai_clock = 0;
+        int fight_elapsed_ticks = 0;
         SimulationClock fight_clock;
         const double counter_frequency = static_cast<double>(SDL_GetPerformanceFrequency());
         Uint64 previous_counter = SDL_GetPerformanceCounter();
@@ -223,7 +225,7 @@ int main(int argc, char** argv) {
             configure(p2, 1, 420, -1);
             load_fighter_sounds(0, frontend.player(0).slot);
             load_fighter_sounds(1, frontend.player(1).slot);
-            combat.reset(); ai_clock = 0; move_list = false;
+            combat.reset(); ai_clock = 0; fight_elapsed_ticks = 0; move_list = false;
             load_arena();
             play_random_fight_music();
             if (audio_ok) announcer.fight();
@@ -352,6 +354,7 @@ int main(int argc, char** argv) {
                 }
                 const auto prior_phase=combat.phase();
                 combat.tick(p1,p2,in1,in2);
+                if (prior_phase == RoundPhase::Fighting) ++fight_elapsed_ticks;
                 if (audio_ok && combat.phase()==RoundPhase::Ending && prior_phase!=RoundPhase::Ending && combat.winner()>=0)
                     announcer.victory(frontend.player(combat.winner()).slot);
                 scene_changed=true;
@@ -384,50 +387,26 @@ int main(int argc, char** argv) {
 
                 combat.render(ren,p1,p2,cam_x);
 
-                // --- HUD: health bars and super meters ---
-                {
-                    int w = 240;
-                    float f1 = p1.health / 120.0f, f2 = p2.health / 120.0f;
-                    SDL_Rect b1{ 24, 16, (int)(w * f1), 14 };
-                    SDL_SetRenderDrawColor(ren, 40, 200, 60, 255);
-                    SDL_RenderFillRect(ren, &b1);
-                    SDL_Rect b2{ logical_w - 24 - (int)(w * f2), 16, (int)(w * f2), 14 };
-                    SDL_RenderFillRect(ren, &b2);
-                    SDL_Rect s1{ 24, 36, p1.super_meter * 6, 6 };
-                    SDL_Rect s2{ logical_w - 24 - p2.super_meter * 6, 36, p2.super_meter * 6, 6 };
-                    SDL_SetRenderDrawColor(ren, 240, 200, 40, 255);
-                    SDL_RenderFillRect(ren, &s1);
-                    SDL_RenderFillRect(ren, &s2);
-                    SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
-                    if (p1.flash > 0) {
-                        SDL_SetRenderDrawColor(ren, 255, 80, 80, 110);
-                        SDL_Rect f1r{ 24, 16, w, 14 };
-                        SDL_RenderFillRect(ren, &f1r);
-                    }
-                    if (p2.flash > 0) {
-                        SDL_SetRenderDrawColor(ren, 255, 80, 80, 110);
-                        SDL_Rect f2r{ logical_w - 24 - w, 16, w, 14 };
-                        SDL_RenderFillRect(ren, &f2r);
-                    }
-                    SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
-                }
+                const int power0=assets->initial_power_icon(frontend.player(0).slot);
+                const int power1=assets->initial_power_icon(frontend.player(1).slot);
+                draw_combat_hud(ren,game_font,frontend.player(0).name,frontend.player(1).name,
+                                p1.health,p2.health,p1.super_meter,p2.super_meter,
+                                std::max(0,90-fight_elapsed_ticks/SimulationClock::frequency),
+                                p1.flash>0,p2.flash>0,
+                                (power0<0 ? 0 : 1<<power0) | p1.stolen_moves,
+                                (power1<0 ? 0 : 1<<power1) | p2.stolen_moves);
 
                 const SDL_Color white{235,240,255,255}, yellow{255,218,72,255};
-                fight_font.draw(second_keyboard ? "F1 MOVES   F2: P2 KEYBOARD" : "F1 MOVES   F2: P2 CPU",
-                                320,378,white,7,11,true);
                 if (combat.phase() == RoundPhase::FinishWindow) {
-                    fight_font.draw("P"+std::to_string(combat.winner()+1)+" - FINISH YOUR OPPONENT!",
-                                    320,54,yellow,10,15,true);
-                    fight_font.draw(frontend.settings().easy_finishings ? "PRESS AN ATTACK BUTTON - F1 DETAILS" :
-                                    "F1: YOUR FINISHING COMMAND",320,72,white,7,11,true);
+                    game_font.draw("FINISH HIM",320,48,24,SDL_Color{255,76,31,255},true);
                 } else if (combat.phase() == RoundPhase::Finishing) {
-                    fight_font.draw("FINISHING",320,54,yellow,12,18,true);
+                    game_font.draw("FINISHING",320,48,24,SDL_Color{255,76,31,255},true);
                 } else if (combat.phase() == RoundPhase::Ending || combat.phase() == RoundPhase::Result) {
-                    fight_font.draw(combat.winner()<0 ? "DOUBLE KO" :
-                                    "P"+std::to_string(combat.winner()+1)+" WINS",
-                                    320,54,yellow,12,18,true);
+                    game_font.draw(combat.winner()<0 ? "DOUBLE KO" :
+                                   std::string(frontend.player(combat.winner()).name)+" WINS",
+                                   320,48,24,SDL_Color{255,76,31,255},true);
                     if (combat.phase() == RoundPhase::Result)
-                        fight_font.draw("ENTER: REMATCH   ESC: MENU",320,76,white,8,12,true);
+                        game_font.draw("ENTER: REMATCH   ESC: MENU",320,76,12,white,true);
                 }
                 if (move_list) {
                     SDL_SetRenderDrawBlendMode(ren,SDL_BLENDMODE_BLEND);
@@ -480,12 +459,6 @@ int main(int argc, char** argv) {
 
                 // --- menu pause (Echap) ---
                 if (paused) {
-                    SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
-                    SDL_SetRenderDrawColor(ren, 0, 0, 0, 140);
-                    SDL_Rect full{0, 0, logical_w, logical_h};
-                    SDL_RenderFillRect(ren, &full);
-                    SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
-                    static const char* items[] = {"CONTINUE MATCH", "F9  CALIBRATE JOYSTICKS", "F10 QUIT MATCH"};
                     frontend.draw_pause_overlay(pause_choice);
                 }
             } else {

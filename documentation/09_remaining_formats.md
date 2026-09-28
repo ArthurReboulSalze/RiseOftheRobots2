@@ -54,7 +54,7 @@ The inspected optional bonus filesystem supplies 70 FLC movies and 77 WAV record
 
 ## Fonts
 
-`CHRSET1.DAT` through `CHRSET3.DAT` are 3,456 bytes each. `FUN_1fa80` renders text using a table at `0x6250f`; the glyph encoding and layout remain to be decoded.
+`CHRSET1.DAT`, `CHRSET2.DAT`, and `CHRSET3.DAT` are respectively 3,456, 13,824, and 55,296 bytes. Each contains 96 uncompressed ASCII cells (space through DEL) of 6×6, 12×12, or 24×24 palette indices; the first all-zero cell is space. Text pixels use indices 251–255 for five grey/black/white shades; 0 is transparent. The coloured power symbols in cells `v`–`{` use the shared `EXTRA.PAL` RGB8 palette (after its eight-byte header), not the menu's OPTIONS palette. `TOOLS/extract_chrset.py` converts each owned bank to a private RGBA atlas. `FUN_132b6` initializes the power masks from the 18-word table at `0x50660`; `FUN_16d4e` renders each set bit 0–5 as the corresponding symbol cell. `TOOLS/extract_power_icons.py` extracts the verified A–R mapping; bonus/hidden slots have no proven entry. The combat HUD and pause menu render these exact glyph shapes, with a provisional brighter text ramp tinted for blue labels and orange highlights. `FUN_1fa80` remains the original text-renderer anchor; its exact text colour remapping is not yet proven.
 
 ## Music sources
 
@@ -64,4 +64,4 @@ The original game supports CD audio and digital music. The user's rip has nine C
 
 ## Next reverse-engineering tasks
 
-Finish MRS event timing and pitch; locate standalone selection speech in base DOS data; resolve native finishing-range indexing and remaining callbacks; reconstruct campaign/movie audio and ending text; decode CHRSET fonts; and verify CDDA selection and digital-music playback against the DOS game.
+Finish MRS event timing and pitch; locate standalone selection speech in base DOS data; resolve native finishing-range indexing and remaining callbacks; reconstruct campaign/movie audio and ending text; verify CHRSET colour remapping and symbol semantics; and verify CDDA selection and digital-music playback against the DOS game.

@@ -39,6 +39,23 @@ int main(int argc, char** argv) {
             if (dos_to_sdl(sdl_to_dos(key))!=key || std::string(dos_key_name(sdl_to_dos(key)))!=SDL_GetKeyName(key))
                 throw std::runtime_error("Function key names and bindings must use the same DOS scancodes");
         Frontend frontend(renderer, assets, argv[1]);
+        if (argc==3) {
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+            SDL_RenderClear(renderer);
+            SDL_Texture* arena=assets.load_ggf("AGJ");
+            SDL_Rect source{0,0,640,400}, target{0,0,640,400};
+            SDL_RenderCopy(renderer,arena,&source,&target);
+            GameFont original_font(renderer,argv[1]);
+            const int war_power=assets.initial_power_icon('E');
+            const int detain_power=assets.initial_power_icon('J');
+            if (war_power<0 || detain_power<0)
+                throw std::runtime_error("Imported initial power icons are missing");
+            draw_combat_hud(renderer,original_font,"WAR","DETAIN",120,120,0,0,85,false,false,
+                            1<<war_power,1<<detain_power);
+            capture("combat_hud");
+            frontend.draw_pause_overlay(0);
+            capture("combat_pause");
+        }
         const auto* extra = assets.load_atlas("EXTRA");
         const auto* extra_cl2 = assets.load_cl2("EXTRA");
         const auto* combat_data = assets.load_combat();
@@ -48,6 +65,10 @@ int main(int argc, char** argv) {
             ("rise2-ui-test-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
         std::filesystem::create_directories(test_dir/"ui");
         std::filesystem::copy_file(std::filesystem::path(argv[1])/"ui/font.png",test_dir/"ui/font.png");
+        for (int i=1;i<=3;++i) {
+            const auto name="charset"+std::to_string(i)+".png";
+            std::filesystem::copy_file(std::filesystem::path(argv[1])/"ui"/name,test_dir/"ui"/name);
+        }
         {
             Frontend menu(renderer,assets,test_dir.string());
             Presentation display(renderer);
@@ -106,7 +127,8 @@ int main(int argc, char** argv) {
                 !reload.settings().easy_finishings || reload.key_for(0,4)!=sdl_to_dos(SDLK_z))
                 throw std::runtime_error("Options and rebound attacks must survive reopening the frontend");
         }
-        for (const char* file : {"font.png","port_options.json","rise2.cfg"}) std::filesystem::remove(test_dir/"ui"/file);
+        for (const char* file : {"font.png","charset1.png","charset2.png","charset3.png",
+                                  "port_options.json","rise2.cfg"}) std::filesystem::remove(test_dir/"ui"/file);
         std::filesystem::remove(test_dir/"ui");std::filesystem::remove(test_dir);
         int movies_checked=0;
         for (const auto& info : assets.movie_catalog()) {

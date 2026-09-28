@@ -95,6 +95,7 @@ SDL_Keycode dos_to_sdl(uint16_t dos_scancode) {
 
 Frontend::Frontend(SDL_Renderer* renderer, Assets& assets, const std::string& assets_dir)
     : renderer_(renderer), assets_(assets), font_(renderer, assets_dir),
+      game_font_(renderer, assets_dir),
       intro_(assets.load_video("LLOGO")), portraits_(assets.load_atlas("VSFACE")),
       title_(assets.load_ggf("MAINSCR")),
       back_(assets.load_ggf("BACK")), hs_(assets.load_ggf("HS")),
@@ -598,16 +599,12 @@ void Frontend::draw_big_robot(int player_index) const {
 }
 
 void Frontend::draw_pause_overlay(int choice) const {
-    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 140);
-    SDL_Rect full{0, 0, 640, 400};
-    SDL_RenderFillRect(renderer_, &full);
-    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_NONE);
-    static const char* items[] = {"CONTINUE MATCH", "F9  CALIBRATE JOYSTICKS", "F10 QUIT MATCH"};
+    static const char* items[] = {
+        "CONTINUE MATCH", "# CALIBRATE JOYSTICKS #", "$ QUIT MATCH $"};
     for (int i = 0; i < 3; ++i) {
-        const SDL_Color color = i == choice ? SDL_Color{255, 60, 40, 255}
-                                            : SDL_Color{176, 202, 245, 255};
-        font_.draw(items[i], 320, 168 + i * 34, color, 16, 21, true);
+        const SDL_Color color = i == choice ? SDL_Color{255, 76, 31, 255}
+                                            : SDL_Color{155, 179, 249, 255};
+        game_font_.draw(items[i], 320, 293 + i * 24, 24, color, true);
     }
 }
 
