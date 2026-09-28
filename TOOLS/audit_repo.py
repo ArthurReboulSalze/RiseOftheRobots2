@@ -8,11 +8,14 @@ import sys
 
 BANNER_PATH = "assets/ROTR2_Port_Banner.png"
 BANNER_SHA256 = "c20ae1f7649c9310d4bdf5a91c88262cdc0182213c594df2561d7b409832db31"
+SCREENSHOT_PATH = "assets/port_combat.png"
+SCREENSHOT_SHA256 = "960737c1338d17b5f48807d10ece6460c956637eeb8d11a8c636cf37f7f975c9"
+APPROVED_PNGS = {BANNER_PATH: BANNER_SHA256, SCREENSHOT_PATH: SCREENSHOT_SHA256}
 
 
 def allowed(path):
     p = PurePosixPath(path)
-    if path in {".gitignore", ".gitattributes", "README.md", "LICENSE", "requirements.txt", "IMPORTER.cmd", "PORT/CMakeLists.txt", BANNER_PATH}:
+    if path in {".gitignore", ".gitattributes", "README.md", "LICENSE", "requirements.txt", "IMPORTER.cmd", "PORT/CMakeLists.txt", *APPROVED_PNGS}:
         return True
     directories = {"TOOLS": {".py"}, "TOOLS/tests": {".py"}, "TOOLS/ghidra_scripts": {".py"},
                    "TOOLS/templates": {".html"}, "PORT/src": {".cpp", ".h"}, "PORT/tests": {".cpp"},
@@ -38,9 +41,9 @@ def main():
             continue
         blob = subprocess.check_output(["git", "cat-file", "blob", oid])
         total += len(blob)
-        if path == BANNER_PATH:
-            if len(blob) > 3 * 1024 * 1024 or not blob.startswith(b"\x89PNG\r\n\x1a\n") or hashlib.sha256(blob).hexdigest() != BANNER_SHA256:
-                errors.append(f"Project banner differs from the approved PNG: {path}")
+        if path in APPROVED_PNGS:
+            if len(blob) > 3 * 1024 * 1024 or not blob.startswith(b"\x89PNG\r\n\x1a\n") or hashlib.sha256(blob).hexdigest() != APPROVED_PNGS[path]:
+                errors.append(f"Project image differs from the approved PNG: {path}")
             continue
         if len(blob) > 1024 * 1024 or b"\0" in blob:
             errors.append(f"Binary or oversized file: {path}")

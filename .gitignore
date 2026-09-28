@@ -9,6 +9,7 @@
 !/assets/
 /assets/*
 !/assets/ROTR2_Port_Banner.png
+!/assets/port_combat.png
 !/TOOLS/
 /TOOLS/*
 !/TOOLS/*.py

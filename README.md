@@ -4,7 +4,11 @@
 
 An experimental community port of **Rise 2: Resurrection**, built with C++17 and SDL2. It reconstructs images, movement, collisions and audio from **your own copy of the game**.
 
-This repository contains our code, tools, research notes and project banner. It contains no original game files, extracted artwork, movies, music, DOS executables or decompiler output. Imported and converted data stay on your computer. This is an independent project, unaffiliated with the game's rights holders. Our code and documentation are available under the [MIT license](LICENSE); the game data retain their owners' rights.
+![Work-in-progress combat in Rise 2: Resurrection Port, showing Prime 0 and Deadlift](assets/port_combat.png)
+
+*Work-in-progress combat in the current port.*
+
+This repository contains our code, tools, research notes, project banner and this in-game screenshot. It contains no standalone original game files, extracted artwork, movies, music, DOS executables or decompiler output. Imported and converted data stay on your computer. This is an independent project, unaffiliated with the game's rights holders. Our code and documentation are available under the [MIT license](LICENSE); the game data retain their owners' rights.
 
 ## Import your copy
 
