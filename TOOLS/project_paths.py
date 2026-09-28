@@ -1,8 +1,9 @@
 """Portable defaults for local, private game data and analysis outputs."""
 import os
+import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(sys._MEIPASS) if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[1]
 WORKSPACE = Path(os.environ.get("RISE2_WORKSPACE", ROOT / "LOCAL/default"))
 _legacy_source = ROOT / "SRC/DOS_version_install_cracked/RISE2"
 SOURCE = Path(os.environ.get("RISE2_SOURCE", WORKSPACE / "game"))

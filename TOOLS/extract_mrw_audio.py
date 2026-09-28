@@ -13,12 +13,12 @@ SRC = str(SOURCE)
 OUT = os.path.join(ROOT, "EXTRACTED", "audio", "mrw")
 RATE = 11025
 
-def main():
+def main(argv=None):
     global SRC, OUT
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source', type=Path, default=SRC)
     parser.add_argument('--output', type=Path, default=OUT)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     SRC, OUT = str(args.source), str(args.output)
     os.makedirs(OUT, exist_ok=True)
     manifest = {}

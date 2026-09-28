@@ -12,7 +12,9 @@ This repository contains our code, tools, research notes, project banner and thi
 
 ## Import your copy
 
-You need **Python 3.12 or later**. On Windows, open PowerShell in this directory:
+The ready-to-run Windows package opens with `Rise2.exe`. It asks for an original game source on first launch, prepares private assets, then starts the port. Later launches let you choose an imported profile or add another copy. It needs no Python, Ghidra, Visual Studio or CMake on the player's computer. Converted profiles are stored under `%LOCALAPPDATA%\Rise2ResurrectionPort\profiles` and survive replacement of the program folder. Keep the whole package folder together; the GitHub source checkout does not include this prebuilt package or any game data.
+
+If you are building from source, you need **Python 3.12 or later**. On Windows, open PowerShell in this directory:
 
 ```powershell
 python -m venv .venv
@@ -90,6 +92,16 @@ ctest --test-dir PORT/build -C Release --output-on-failure
 .\PORT\build\Release\rotr2.exe --assets "$PWD/LOCAL/my-game/EXTRACTED"
 ```
 
+To make a private ready-to-run package after the Release build:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
+.\.venv\Scripts\python.exe TOOLS/build_distribution.py
+.\LOCAL\distribution\Rise2\Rise2.exe --verify-package
+```
+
+The output is `LOCAL/distribution/Rise2/`; distribute the **entire folder**, starting with `Rise2.exe`. It contains the prebuilt port and bundled importer, but no game files. The [standalone distribution design and checks](documentation/18_standalone_distribution.md) describe its private profile storage and test limits.
+
 The current flow shows the logos, title screen, character selection and an initial fight. Enter confirms and Escape goes back. At selection, the arrow keys control player 1 and A/D control player 2. The older edition has 28 robots; Director's Cut adds two more.
 
 Combat and finishing animations advance at the recovered **25 updates/second** DOS cadence, independently of display refresh rate. Slow rendered frames catch up on pending simulation updates.
@@ -130,6 +142,6 @@ python TOOLS/audit_repo.py --staged
 
 After an import, `PORT/build/Release/rotr2_asset_smoke.exe LOCAL/my-game/EXTRACTED` checks menus and every robot bank without opening a window.
 
-Automated tests build small synthetic disc images and samples; they need no original game data. The Git index audit allows only known code and documentation paths plus the project banner. `SRC`, `LOCAL`, `EXTRACTED`, captures, Ghidra projects, builds and downloaded dependencies are excluded.
+Automated tests build small synthetic disc images and samples; they need no original game data. The Git index audit allows only known code and documentation paths plus the approved banner and screenshot. `SRC`, `LOCAL`, `EXTRACTED`, captures, Ghidra projects, builds and downloaded dependencies are excluded.
 
 Before release, the physical-CD path still needs real hardware validation. SDL2/SDL2_image, nlohmann/json, Pillow and pycdlib retain their own licenses; see their distributions. The xBR implementation retains Hyllian's MIT copyright and permission notice in `PORT/src/filters.cpp`.

@@ -2,18 +2,19 @@
 from pathlib import Path
 import queue
 import re
-import subprocess
-import sys
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+from import_game import run_import
 from project_paths import ROOT
 
 
 class ImportWindow:
-    def __init__(self, root):
+    def __init__(self, root, profile_root=None, on_success=None):
         self.root = root
+        self.profile_root = Path(profile_root) if profile_root else ROOT / "LOCAL"
+        self.on_success = on_success
         self.root.title("Rise 2 — Import your game")
         self.root.geometry("850x640")
         self.sources = []
@@ -79,29 +80,27 @@ class ImportWindow:
         if not self.sources or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,47}", self.profile.get()):
             messagebox.showerror("Import", "Add a source and use a simple profile name (letters, numbers, hyphens).")
             return
-        args = [sys.executable, "-u", str(ROOT / "TOOLS/import_game.py"), "--source", *self.sources,
-                "--output", str(ROOT / "LOCAL" / self.profile.get()), "--music-mode", self.mode.get()]
-        if self.music.get():
-            args += ["--music", self.music.get()]
+        destination = self.profile_root / self.profile.get()
+        music = [Path(self.music.get())] if self.music.get() else []
         self.running = True
         self.start_button.configure(state="disabled")
         for button in self.buttons:
             button.configure(state="disabled")
-        threading.Thread(target=self.worker, args=(args,), daemon=True).start()
+        threading.Thread(target=self.worker,
+                         args=(list(self.sources), destination, music, self.mode.get()),
+                         daemon=True).start()
 
-    def worker(self, args):
+    def worker(self, sources, destination, music, mode):
         try:
-            kwargs = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
-            with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                                  encoding="utf-8", errors="replace", env={**__import__('os').environ, "PYTHONUTF8": "1"}, **kwargs) as process:
-                for line in process.stdout:
-                    self.messages.put(line)
-                self.messages.put(("done", process.wait()))
+            run_import(sources, destination, music, mode,
+                       log=lambda line: self.messages.put(str(line) + "\n"))
+            self.messages.put(("done", 0, destination))
         except Exception as exc:
             self.messages.put(str(exc) + "\n")
-            self.messages.put(("done", 1))
+            self.messages.put(("done", 1, destination))
 
     def poll(self):
+        finished_profile = None
         while not self.messages.empty():
             item = self.messages.get_nowait()
             if isinstance(item, tuple):
@@ -109,12 +108,20 @@ class ImportWindow:
                 self.start_button.configure(state="normal")
                 for button in self.buttons:
                     button.configure(state="normal")
-                item = "\nImport complete. See import-report.json in your profile.\n" if item[1] == 0 else "\nImport stopped. See the messages above.\n"
+                succeeded = item[1] == 0
+                profile = item[2]
+                item = "\nImport complete. See import-report.json in your profile.\n" if succeeded else "\nImport stopped. See the messages above.\n"
+                if succeeded and self.on_success:
+                    finished_profile = profile
             self.log.configure(state="normal")
             self.log.insert("end", item)
             self.log.see("end")
             self.log.configure(state="disabled")
-        self.root.after(100, self.poll)
+        if finished_profile:
+            self.on_success(finished_profile)
+            return
+        if self.root.winfo_exists():
+            self.root.after(100, self.poll)
 
     def close(self):
         if self.running:

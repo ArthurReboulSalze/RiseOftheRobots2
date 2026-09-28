@@ -33,11 +33,11 @@ def parse_icons(image: bytes, base: int) -> dict[str, int]:
     return dict(zip(SLOTS, indices))
 
 
-def main() -> None:
+def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=SOURCE)
     parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     raw = (args.source / "RISE2.EXR").read_bytes()
     digest = hashlib.sha256(raw).hexdigest()
     if digest not in KNOWN_EXR:

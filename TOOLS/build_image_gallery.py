@@ -6,10 +6,10 @@ from pathlib import Path
 from extract_ggf import ROOT
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--extracted', type=Path, default=ROOT / "EXTRACTED")
-    extracted = parser.parse_args().extracted
+    extracted = parser.parse_args(argv).extracted
     catalog = json.loads((extracted / "sprites/catalog.json").read_text(encoding="utf-8"))
     banks = []
     for entry in catalog:

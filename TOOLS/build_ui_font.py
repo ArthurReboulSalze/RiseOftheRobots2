@@ -4,18 +4,18 @@ import argparse
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
+from project_paths import ROOT
 
 
-ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "EXTRACTED/ui/font.png"
 CELL_W, CELL_H, COLUMNS = 16, 20, 16
 FIRST, LAST = 32, 126
 
 
-def main() -> None:
+def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=OUTPUT)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     # Pillow's bundled font avoids distributing or requiring a Windows font.
     font = ImageFont.load_default(size=18)
     rows = (LAST - FIRST + COLUMNS) // COLUMNS

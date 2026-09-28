@@ -152,13 +152,13 @@ def make_roster(entries, output):
     sheet.save(output / "robots.png")
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=SRC)
     parser.add_argument("--output", type=Path, default=ROOT / "EXTRACTED/sprites")
     parser.add_argument("--banks", nargs="+")
     parser.add_argument("--individual", action="store_true")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     args.output.mkdir(parents=True, exist_ok=True)
     stems = args.banks or [stem for stem in ([f"RBT{slot}" for slot in ALPHABET] +
                            [f"RB4{slot}" for slot in ALPHABET] + ["VSFACE", "V4FACE", "EXTRA"])

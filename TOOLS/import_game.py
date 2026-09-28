@@ -8,7 +8,6 @@ import re
 import shutil
 import stat
 import subprocess
-import sys
 import tempfile
 import wave
 import zipfile
@@ -17,9 +16,33 @@ from disc_image import MAX_BYTES, MAX_FILES, extract_cue, extract_iso, safe_path
 from project_paths import ROOT
 from extract_ani import movie_format
 from extract_bonus_media import collect_media, export_media
+from extract_ggf import main as extract_ggf_main
+from extract_anr import main as extract_anr_main
+from extract_mvs import main as extract_mvs_main
+from extract_combat import main as extract_combat_main
+from extract_cl2 import main as extract_cl2_main
+from extract_mrw_audio import main as extract_mrw_audio_main
+from extract_ani import main as extract_ani_main
+from build_ui_font import main as build_ui_font_main
+from extract_chrset import main as extract_chrset_main
+from extract_power_icons import main as extract_power_icons_main
+from build_image_gallery import main as build_image_gallery_main
 
 SLOTS = "01ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 MUSIC_EXTENSIONS = {".wav", ".mp3", ".flac", ".ogg", ".m4a"}
+CONVERTERS = {
+    "extract_ggf.py": extract_ggf_main,
+    "extract_anr.py": extract_anr_main,
+    "extract_mvs.py": extract_mvs_main,
+    "extract_combat.py": extract_combat_main,
+    "extract_cl2.py": extract_cl2_main,
+    "extract_mrw_audio.py": extract_mrw_audio_main,
+    "extract_ani.py": extract_ani_main,
+    "build_ui_font.py": build_ui_font_main,
+    "extract_chrset.py": extract_chrset_main,
+    "extract_power_icons.py": extract_power_icons_main,
+    "build_image_gallery.py": build_image_gallery_main,
+}
 
 
 def digest(path):
@@ -266,7 +289,7 @@ def convert(game, extracted, log=print):
     ]
     for job in jobs:
         log(f"Converting: {job[0]}")
-        subprocess.run([sys.executable, "-u", str(ROOT / "TOOLS" / job[0]), *map(str, job[1:])], check=True)
+        CONVERTERS[job[0]](list(map(str, job[1:])))
     # Validate the contracts actually consumed by the C++ runtime.
     for slot in SLOTS + "23":
         if not (extracted / f"sprites/RBT{slot}/manifest.json").exists():

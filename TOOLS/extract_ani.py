@@ -171,12 +171,12 @@ def export_movie(job: tuple[Path, Path]) -> dict:
                 ("source_sha256", "size", "frame_count", "playable_frame_count", "kind", "robot_slot")})
 
 
-def main() -> None:
+def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-dir", type=Path, default=SOURCE_DIR)
     parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR)
     parser.add_argument("--workers", type=int, default=4)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     sources = sorted(p for p in args.source_dir.iterdir() if p.suffix.upper() == ".ANI")
     if not sources:
         raise ValueError("No ANI movies in the supplied game directory")

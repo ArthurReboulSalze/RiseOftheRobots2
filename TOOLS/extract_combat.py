@@ -52,11 +52,11 @@ def parse_tables(raw):
                 reactions=list(read(0x62b48 + shift, '<4h')))
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source', type=Path, default=SOURCE)
     parser.add_argument('--output', type=Path, default=ROOT / 'EXTRACTED/data/combat.json')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     data = parse_tables((args.source / 'RISE2.EXR').read_bytes())
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')

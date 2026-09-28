@@ -70,11 +70,11 @@ def decode_ggf(path):
     return decoded.flag, decoded.palette, decoded.pixels
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=SRC)
     parser.add_argument("--output", type=Path, default=OUTDIR)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     args.output.mkdir(parents=True, exist_ok=True)
     palette_dir = args.output.parent / "_palettes"
     palette_dir.mkdir(exist_ok=True)

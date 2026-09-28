@@ -15,7 +15,7 @@ APPROVED_PNGS = {BANNER_PATH: BANNER_SHA256, SCREENSHOT_PATH: SCREENSHOT_SHA256}
 
 def allowed(path):
     p = PurePosixPath(path)
-    if path in {".gitignore", ".gitattributes", "README.md", "LICENSE", "requirements.txt", "IMPORTER.cmd", "PORT/CMakeLists.txt", *APPROVED_PNGS}:
+    if path in {".gitignore", ".gitattributes", "README.md", "LICENSE", "requirements.txt", "requirements-build.txt", "IMPORTER.cmd", "PORT/CMakeLists.txt", *APPROVED_PNGS}:
         return True
     directories = {"TOOLS": {".py"}, "TOOLS/tests": {".py"}, "TOOLS/ghidra_scripts": {".py"},
                    "TOOLS/templates": {".html"}, "PORT/src": {".cpp", ".h"}, "PORT/tests": {".cpp"},

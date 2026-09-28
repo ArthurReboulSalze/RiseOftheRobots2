@@ -47,12 +47,12 @@ def decode(data: bytes, size: int, palette: bytes | None = None) -> Image.Image:
     return image
 
 
-def main() -> None:
+def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=SOURCE)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--palette", type=Path)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     palette = read_palette(args.palette) if args.palette and args.palette.exists() else None
     args.output.mkdir(parents=True, exist_ok=True)
     for number, size in enumerate(SIZES, 1):

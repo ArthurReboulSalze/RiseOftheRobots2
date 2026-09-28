@@ -23,6 +23,7 @@ Director's Cut Disc 1 supplies the game, 105 ANI files and CD tracks 02–10. Di
 | [15_combat_commands_and_fx.md](15_combat_commands_and_fx.md) | Attack strengths, robot commands, original FX/projectiles, damage reactions and initial finishing integration |
 | [16_options_filters_and_fx.md](16_options_filters_and_fx.md) | Saved volumes, finishing shortcuts, retro filters, Cyborg palette and projectile placement corrections |
 | [17_finishings_voices_and_player.md](17_finishings_voices_and_player.md) | Cyborg finishing placement, native victory speech, ANI timing, optional FLC media and PLAYER controls |
+| [18_standalone_distribution.md](18_standalone_distribution.md) | Single-entry Windows launcher, packaged importer, private profiles and validation |
 
 Working directories:
 
